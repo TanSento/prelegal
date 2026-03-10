@@ -26,8 +26,8 @@ body {
 
   html,
   body {
-    height: auto;
-    overflow: visible;
+    height: auto !important;
+    overflow: visible !important;
   }
 
   /* Hide the form sidebar */

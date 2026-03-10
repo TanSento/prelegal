@@ -57,7 +57,7 @@ export default function NdaPreview({ data }: NdaPreviewProps) {
               <div className="flex items-center gap-2">
                 <Checkbox checked={mndaTerm.type === "expires"} />
                 <span>
-                  Expires <span className="font-medium">{pluralYears(mndaTerm.years)}</span> from Effective Date
+                  Expires{mndaTerm.type === "expires" && <> <span className="font-medium">{pluralYears(mndaTerm.years)}</span></>} from Effective Date
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -72,7 +72,7 @@ export default function NdaPreview({ data }: NdaPreviewProps) {
               <div className="flex items-center gap-2">
                 <Checkbox checked={termOfConfidentiality.type === "years"} />
                 <span>
-                  <span className="font-medium">{pluralYears(termOfConfidentiality.years)}</span>{" "}
+                  {termOfConfidentiality.type === "years" && <><span className="font-medium">{pluralYears(termOfConfidentiality.years)}</span>{" "}</>}
                   from Effective Date, but in the case of trade secrets until Confidential Information is no longer
                   considered a trade secret under applicable laws
                 </span>

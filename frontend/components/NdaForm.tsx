@@ -91,7 +91,7 @@ export default function NdaForm({ data, onChange, onPrint }: NdaFormProps) {
                 min={1}
                 className={numberInputCls}
                 value={data.mndaTerm.years}
-                onChange={(e) => set("mndaTerm", { ...data.mndaTerm, years: Number(e.target.value) })}
+                onChange={(e) => set("mndaTerm", { ...data.mndaTerm, years: Math.max(1, Number(e.target.value) || 1) })}
                 disabled={data.mndaTerm.type !== "expires"}
               />
               <span className="text-sm text-slate-700">year(s)</span>
@@ -126,7 +126,7 @@ export default function NdaForm({ data, onChange, onPrint }: NdaFormProps) {
                 className={numberInputCls}
                 value={data.termOfConfidentiality.years}
                 onChange={(e) =>
-                  set("termOfConfidentiality", { ...data.termOfConfidentiality, years: Number(e.target.value) })
+                  set("termOfConfidentiality", { ...data.termOfConfidentiality, years: Math.max(1, Number(e.target.value) || 1) })
                 }
                 disabled={data.termOfConfidentiality.type !== "years"}
               />

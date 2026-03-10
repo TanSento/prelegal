@@ -6,7 +6,10 @@ import NdaPreview from "@/components/NdaPreview";
 import { defaultFormData, NdaFormData } from "@/lib/types";
 
 export default function Home() {
-  const [formData, setFormData] = useState<NdaFormData>(defaultFormData);
+  const [formData, setFormData] = useState<NdaFormData>(() => ({
+    ...defaultFormData,
+    effectiveDate: new Date().toISOString().split("T")[0],
+  }));
 
   const handlePrint = () => window.print();
 
