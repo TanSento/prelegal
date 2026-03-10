@@ -10,20 +10,36 @@ export default function Home() {
     ...defaultFormData,
     effectiveDate: new Date().toISOString().split("T")[0],
   }));
+  const [downloading, setDownloading] = useState(false);
 
-  const handlePrint = () => window.print();
+  const handleDownload = async () => {
+    setDownloading(true);
+    try {
+      const [{ pdf }, { default: NdaPdf }] = await Promise.all([
+        import("@react-pdf/renderer"),
+        import("@/components/NdaPdf"),
+      ]);
+      const blob = await pdf(<NdaPdf data={formData} />).toBlob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "mutual-nda.pdf";
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   return (
     <div className="flex h-screen bg-slate-100 overflow-hidden">
-      {/* Form panel — hidden when printing */}
-      <aside className="w-96 flex-shrink-0 bg-white border-r border-slate-200 flex flex-col overflow-hidden print:hidden">
-        <NdaForm data={formData} onChange={setFormData} onPrint={handlePrint} />
+      <aside className="w-96 flex-shrink-0 bg-white border-r border-slate-200 flex flex-col overflow-hidden">
+        <NdaForm data={formData} onChange={setFormData} onDownload={handleDownload} downloading={downloading} />
       </aside>
 
-      {/* Preview panel */}
       <main className="flex-1 overflow-y-auto">
-        <div className="max-w-4xl mx-auto py-8 px-6 print:p-0 print:max-w-none">
-          <div className="bg-white shadow-sm rounded-lg overflow-hidden print:shadow-none print:rounded-none">
+        <div className="max-w-4xl mx-auto py-8 px-6">
+          <div className="bg-white shadow-sm rounded-lg overflow-hidden">
             <NdaPreview data={formData} />
           </div>
         </div>

@@ -5,7 +5,8 @@ import { NdaFormData } from "@/lib/types";
 interface NdaFormProps {
   data: NdaFormData;
   onChange: (data: NdaFormData) => void;
-  onPrint: () => void;
+  onDownload: () => void;
+  downloading: boolean;
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -39,7 +40,7 @@ const textareaCls = inputCls + " resize-none";
 const numberInputCls =
   "w-16 rounded-md border border-slate-300 px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500";
 
-export default function NdaForm({ data, onChange, onPrint }: NdaFormProps) {
+export default function NdaForm({ data, onChange, onDownload, downloading }: NdaFormProps) {
   const set = <K extends keyof NdaFormData>(key: K, value: NdaFormData[K]) =>
     onChange({ ...data, [key]: value });
 
@@ -218,10 +219,11 @@ export default function NdaForm({ data, onChange, onPrint }: NdaFormProps) {
 
       <div className="px-6 py-4 border-t border-slate-200 bg-white">
         <button
-          onClick={onPrint}
-          className="w-full rounded-md bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 active:bg-blue-800 transition focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          onClick={onDownload}
+          disabled={downloading}
+          className="w-full rounded-md bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 active:bg-blue-800 transition focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          Download as PDF
+          {downloading ? "Generating PDF…" : "Download as PDF"}
         </button>
       </div>
     </div>
