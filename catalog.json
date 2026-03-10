@@ -1,0 +1,62 @@
+[
+  {
+    "name": "Mutual Non-Disclosure Agreement",
+    "description": "Common Paper Mutual NDA, created by a committee of over 40 attorneys representing technology vendors, procurement teams, boutique firms, and Big Law. A standardized agreement for mutual confidentiality between parties.",
+    "filename": "templates/Mutual-NDA.md"
+  },
+  {
+    "name": "Mutual NDA Cover Page",
+    "description": "Cover page template for the Common Paper Mutual NDA, used to capture the specific business terms and incorporate the standard terms by reference.",
+    "filename": "templates/Mutual-NDA-coverpage.md"
+  },
+  {
+    "name": "Cloud Service Agreement",
+    "description": "Common Paper Cloud Service Agreement (CSA), a standardized agreement for selling and buying cloud software and SaaS products, created by a committee of over 40 attorneys.",
+    "filename": "templates/CSA.md"
+  },
+  {
+    "name": "Service Level Agreement",
+    "description": "Common Paper Service Level Agreement (SLA), designed to be used alongside the Common Paper Cloud Service Agreement (CSA) to define service level commitments, uptime targets, and remedies.",
+    "filename": "templates/sla.md"
+  },
+  {
+    "name": "Design Partner Agreement",
+    "description": "Common Paper Design Partner Agreement, for companies engaging design partners in early-stage product development. Covers access, feedback, confidentiality, and IP ownership terms.",
+    "filename": "templates/design-partner-agreement.md"
+  },
+  {
+    "name": "Professional Services Agreement",
+    "description": "Common Paper Professional Services Agreement (PSA), for engaging professional services with defined deliverables, SOW terms, and governing law, created by a committee of over 40 attorneys.",
+    "filename": "templates/psa.md"
+  },
+  {
+    "name": "Data Processing Agreement",
+    "description": "Common Paper Data Processing Agreement (DPA), for governing the processing of personal data in compliance with data protection regulations such as GDPR, created by a committee of over 40 attorneys.",
+    "filename": "templates/DPA.md"
+  },
+  {
+    "name": "Partnership Agreement",
+    "description": "Common Paper Partnership Agreement, for establishing business partnership terms between companies, including SOW terms, deliverables, and governing law.",
+    "filename": "templates/Partnership-Agreement.md"
+  },
+  {
+    "name": "Software License Agreement",
+    "description": "Common Paper Software License Agreement, for licensing software products including Order Form terms, deliverable details, and governing law, created by a committee of over 40 attorneys.",
+    "filename": "templates/Software-License-Agreement.md"
+  },
+  {
+    "name": "Pilot Agreement",
+    "description": "Common Paper Pilot Agreement, a short-term contract allowing prospective customers to test a product or service before committing to a longer-term deal. Covers access, fees, data handling, and termination.",
+    "filename": "templates/Pilot-Agreement.md"
+  },
+  {
+    "name": "Business Associate Agreement",
+    "description": "Common Paper Business Associate Agreement (BAA), for governing the handling of protected health information (PHI) in compliance with HIPAA requirements, created by a committee of over 40 attorneys.",
+    "filename": "templates/BAA.md"
+  },
+  {
+    "name": "AI Addendum",
+    "description": "Common Paper AI Addendum, for governing the use of artificial intelligence tools and services in commercial agreements, including data use, model training restrictions, and AI-specific compliance terms.",
+    "filename": "templates/AI-Addendum.md"
+  }
+]
