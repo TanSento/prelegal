@@ -131,3 +131,9 @@ docker-compose.override.yml
 .netlify
 tmp/
 temp/
+*.pdf
+
+# ========================
+# Claude Code
+# ========================
+.claude/
