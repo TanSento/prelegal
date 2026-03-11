@@ -23,11 +23,13 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-sm font-medium text-slate-700 mb-1">
-        {label}
-        {hint && <span className="ml-1 text-xs font-normal text-slate-400">({hint})</span>}
+      <label className="block">
+        <span className="block text-sm font-medium text-slate-700 mb-1">
+          {label}
+          {hint && <span className="ml-1 text-xs font-normal text-slate-400">({hint})</span>}
+        </span>
+        {children}
       </label>
-      {children}
     </div>
   );
 }
@@ -90,6 +92,7 @@ export default function NdaForm({ data, onChange, onDownload, downloading }: Nda
               <input
                 type="number"
                 min={1}
+                aria-label="MNDA Term years"
                 className={numberInputCls}
                 value={data.mndaTerm.years}
                 onChange={(e) => set("mndaTerm", { ...data.mndaTerm, years: Math.max(1, Number(e.target.value) || 1) })}
@@ -124,6 +127,7 @@ export default function NdaForm({ data, onChange, onDownload, downloading }: Nda
               <input
                 type="number"
                 min={1}
+                aria-label="Term of Confidentiality years"
                 className={numberInputCls}
                 value={data.termOfConfidentiality.years}
                 onChange={(e) =>

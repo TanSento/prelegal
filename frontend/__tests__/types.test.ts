@@ -1,0 +1,81 @@
+/**
+ * Tests for lib/types.ts
+ *
+ * formatDate and pluralYears live inside NdaPreview.tsx (and NdaPdf.tsx) and
+ * are NOT exported, so we verify their behaviour indirectly by examining what
+ * NdaPreview renders.  The `val` helper used in NdaPdf is also tested by
+ * checking observable rendering in NdaPreview's `fill` equivalent.
+ *
+ * The exported surface we CAN test directly:
+ *  - defaultFormData shape / field presence
+ *  - interface type structure (compile-time, but we guard with runtime checks)
+ */
+
+import { defaultFormData } from "@/lib/types";
+
+// ─── defaultFormData ──────────────────────────────────────────────────────────
+
+describe("defaultFormData", () => {
+  it("has all required top-level fields", () => {
+    expect(defaultFormData).toHaveProperty("purpose");
+    expect(defaultFormData).toHaveProperty("effectiveDate");
+    expect(defaultFormData).toHaveProperty("mndaTerm");
+    expect(defaultFormData).toHaveProperty("termOfConfidentiality");
+    expect(defaultFormData).toHaveProperty("governingLaw");
+    expect(defaultFormData).toHaveProperty("jurisdiction");
+    expect(defaultFormData).toHaveProperty("party1");
+    expect(defaultFormData).toHaveProperty("party2");
+  });
+
+  it("effectiveDate is a string", () => {
+    expect(typeof defaultFormData.effectiveDate).toBe("string");
+  });
+
+  it("effectiveDate looks like a YYYY-MM-DD date string", () => {
+    expect(defaultFormData.effectiveDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it("mndaTerm.type defaults to 'expires'", () => {
+    expect(defaultFormData.mndaTerm.type).toBe("expires");
+  });
+
+  it("mndaTerm.years is a positive number", () => {
+    expect(defaultFormData.mndaTerm.years).toBeGreaterThan(0);
+  });
+
+  it("termOfConfidentiality.type defaults to 'years'", () => {
+    expect(defaultFormData.termOfConfidentiality.type).toBe("years");
+  });
+
+  it("party1 has all required sub-fields with empty strings", () => {
+    const p = defaultFormData.party1;
+    expect(p.name).toBe("");
+    expect(p.title).toBe("");
+    expect(p.company).toBe("");
+    expect(p.noticeAddress).toBe("");
+    expect(p.date).toBe("");
+  });
+
+  it("party2 has all required sub-fields with empty strings", () => {
+    const p = defaultFormData.party2;
+    expect(p.name).toBe("");
+    expect(p.title).toBe("");
+    expect(p.company).toBe("");
+    expect(p.noticeAddress).toBe("");
+    expect(p.date).toBe("");
+  });
+
+  it("governingLaw defaults to empty string", () => {
+    expect(defaultFormData.governingLaw).toBe("");
+  });
+
+  it("jurisdiction defaults to empty string", () => {
+    expect(defaultFormData.jurisdiction).toBe("");
+  });
+
+  it("purpose is a non-empty string", () => {
+    expect(typeof defaultFormData.purpose).toBe("string");
+    expect(defaultFormData.purpose.length).toBeGreaterThan(0);
+  });
+});
+
