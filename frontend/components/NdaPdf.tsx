@@ -80,10 +80,11 @@ const s = StyleSheet.create({
     borderColor: "#64748b",
     marginRight: 5,
     marginTop: 1,
-    alignItems: "center",
-    justifyContent: "center",
   },
-  checkmark: { fontSize: 8, fontFamily: "Helvetica-Bold", color: "#2563eb" },
+  checkboxChecked: {
+    backgroundColor: "#2563eb",
+    borderColor: "#2563eb",
+  },
 
   // Signature table
   sigHeaderCell: {
@@ -177,11 +178,7 @@ const s = StyleSheet.create({
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
 function Checkbox({ checked }: { checked: boolean }) {
-  return (
-    <View style={s.checkbox}>
-      {checked && <Text style={s.checkmark}>✓</Text>}
-    </View>
-  );
+  return <View style={[s.checkbox, checked ? s.checkboxChecked : {}]} />;
 }
 
 function TableRow({
