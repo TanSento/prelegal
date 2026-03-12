@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import NdaForm from "@/components/NdaForm";
+import ChatPanel from "@/components/ChatPanel";
 import NdaPreview from "@/components/NdaPreview";
 import { defaultFormData, NdaFormData } from "@/lib/types";
 
@@ -14,7 +14,7 @@ export default function Dashboard() {
     effectiveDate: new Date().toISOString().split("T")[0],
   }));
   const [downloading, setDownloading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"form" | "preview">("form");
+  const [activeTab, setActiveTab] = useState<"chat" | "preview">("chat");
 
   useEffect(() => {
     const stored = localStorage.getItem("prelegal_user");
@@ -70,14 +70,14 @@ export default function Dashboard() {
       {/* Mobile tab bar */}
       <div className="flex lg:hidden border-b border-slate-200 bg-white flex-shrink-0">
         <button
-          onClick={() => setActiveTab("form")}
+          onClick={() => setActiveTab("chat")}
           className={`flex-1 py-3 text-sm font-medium transition ${
-            activeTab === "form"
+            activeTab === "chat"
               ? "text-[#209dd7] border-b-2 border-[#209dd7]"
               : "text-slate-500 hover:text-slate-700"
           }`}
         >
-          Form
+          Chat
         </button>
         <button
           onClick={() => setActiveTab("preview")}
@@ -95,10 +95,10 @@ export default function Dashboard() {
       <div className="flex flex-1 overflow-hidden">
         <aside
           className={`w-full lg:w-96 flex-shrink-0 bg-white border-r border-slate-200 flex-col overflow-hidden ${
-            activeTab === "form" ? "flex" : "hidden"
+            activeTab === "chat" ? "flex" : "hidden"
           } lg:flex`}
         >
-          <NdaForm data={formData} onChange={setFormData} onDownload={handleDownload} downloading={downloading} />
+          <ChatPanel data={formData} onChange={setFormData} onDownload={handleDownload} downloading={downloading} />
         </aside>
 
         <main
