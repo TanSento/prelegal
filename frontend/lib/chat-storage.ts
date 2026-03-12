@@ -4,7 +4,7 @@ const KEY = "prelegal_chat_nda";
 
 export function loadMessages(): ChatMessage[] {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = sessionStorage.getItem(KEY);
     return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
@@ -12,9 +12,9 @@ export function loadMessages(): ChatMessage[] {
 }
 
 export function saveMessages(messages: ChatMessage[]): void {
-  localStorage.setItem(KEY, JSON.stringify(messages));
+  sessionStorage.setItem(KEY, JSON.stringify(messages));
 }
 
 export function clearMessages(): void {
-  localStorage.removeItem(KEY);
+  sessionStorage.removeItem(KEY);
 }
