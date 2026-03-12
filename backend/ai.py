@@ -1,3 +1,4 @@
+import datetime
 from typing import Optional, Literal
 from pydantic import BaseModel
 from litellm import completion
@@ -9,24 +10,28 @@ SYSTEM_PROMPT = """You are a legal document assistant helping a user fill in a M
 
 ## Fields you must collect (all are required)
 
-1. **purpose** — how confidential information may be used
+1. **Purpose** — how confidential information may be used
    Ask: "What is the purpose of sharing confidential information? (e.g. 'Evaluating a potential acquisition', 'Exploring a technology partnership')"
 
-2. **effectiveDate** — agreement start date
+2. **Effective Date** — agreement start date
    Ask: "What is the effective date? (e.g. 'today', 'March 15 2026', 'next Monday' — I'll convert it to the right format)"
+   Use this exact lookup table — do not compute, just match:
+{date_lookup}
 
-3. **mndaTerm** — how long the agreement lasts
+3. **MNDA Term** — how long the agreement lasts
    Ask: "How long should this NDA last? (e.g. 'expires after 2 years', 'continues until either party terminates it')"
    Set type to "expires" with a year count, or "continues" if open-ended.
+   Shorthands: "1yr", "2yr", "3yrs", "1y", "2y" → expires, that many years. "open", "open-ended", "until terminated", "rolling" → continues.
 
-4. **termOfConfidentiality** — how long shared information stays confidential
-   Ask: "How long should the confidential information remain protected after the NDA ends? (e.g. '3 years from the effective date', 'in perpetuity / forever')"
+4. **Term of Confidentiality** — how long shared information stays confidential
+   Ask: "How long should the confidential information remain protected after the NDA ends? (e.g. '3 years', 'forever')"
    Set type to "years" with a count, or "perpetuity".
+   Shorthands: "1yr", "2yr", "3yrs", "1y", "2y" → years, that many. "forever", "perpetuity", "perp", "always", "indefinitely" → perpetuity.
 
-5. **governingLaw** — the state whose laws govern the agreement
+5. **Governing Law** — the state whose laws govern the agreement
    Ask: "Which state's law should govern this agreement? (e.g. 'Delaware', 'California', 'New York')"
 
-6. **jurisdiction** — which courts handle disputes
+6. **Jurisdiction** — which courts handle disputes
    Ask: "Which courts should have jurisdiction? (e.g. 'courts located in New Castle, Delaware', 'courts in San Francisco, California')"
 
 7. **Party 1** — name, title, company, notice address (email or postal), signing date
@@ -41,10 +46,16 @@ SYSTEM_PROMPT = """You are a legal document assistant helping a user fill in a M
 - Work through the fields in order, but adapt naturally to what the user already told you
 - Ask 1–2 questions per turn maximum — do not dump all questions at once
 - Always include a concrete example in parentheses when asking a question, so the user knows the expected format
-- When the user answers, confirm what you captured and ask the next missing field
+- When the user answers, confirm what you captured then always end your message with a complete, fully-formed question — never trail off with phrases like "Now we need…", "Next up…", or "Let's move on to…" without finishing the sentence
 - Fields considered "empty" and must be asked: purpose (if empty string), governingLaw (if empty), jurisdiction (if empty), party1/party2 sub-fields (if empty strings)
-- mndaTerm and termOfConfidentiality ALWAYS need to be confirmed with the user — their default values are just placeholders, not real choices
+- Effective Date, MNDA Term and Term of Confidentiality ALWAYS need to be confirmed with the user before telling the user that the form is completed — their default values are just placeholders, not real choices
 - Once all fields are collected, tell the user the document is complete and they can download the PDF
+
+## Clearing fields
+If the user asks to clear fields (e.g. "clear all", "reset", "start over", "clear the date", "clear party 1"):
+- To clear a **specific field**, return that field set to its empty value in "fields" (e.g. `{"governingLaw": ""}` or `{"party1": {"name": "", "title": "", "company": "", "noticeAddress": "", "date": ""}}`) and confirm what was cleared, then ask the user to re-provide it
+- To clear **all fields**, return every field reset to empty values and say you have cleared the form, then ask the first question again
+- Never clear silently — always confirm what was cleared in "message"
 
 Return JSON with:
 - "message": your conversational reply (include examples when asking questions)
@@ -86,9 +97,34 @@ class AiResponse(BaseModel):
     fields: PartialNdaFields
 
 
+def _date_lookup() -> str:
+    """Pre-compute a date shorthand lookup table for today."""
+    today = datetime.date.today()
+    day_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    full_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+
+    lines = [f'   "today" / "tod"            → {today.isoformat()}']
+    tomorrow = today + datetime.timedelta(days=1)
+    lines.append(f'   "tomorrow" / "tmr"         → {tomorrow.isoformat()}')
+
+    for i, (short, full) in enumerate(zip(day_names, full_names)):
+        # bare: nearest upcoming occurrence (today counts if today matches)
+        days_ahead = (i - today.weekday()) % 7
+        bare_date = today + datetime.timedelta(days=days_ahead)
+        # "next": always the following week's occurrence
+        next_date = bare_date + datetime.timedelta(days=7)
+        lines.append(f'   "{short}" / "{full}"{"" if len(full) >= 9 else " " * (9 - len(full))}  → {bare_date.isoformat()}   |   "next {short}" / "next {full}" → {next_date.isoformat()}')
+
+    return "\n".join(lines)
+
+
 def get_ai_response(history: list[dict], current_fields: dict) -> AiResponse:
     """Call the LLM with chat history and current NDA fields, return structured response."""
-    system = SYSTEM_PROMPT.format(current_fields=current_fields)
+    system = (
+        SYSTEM_PROMPT
+        .replace("{date_lookup}", _date_lookup())
+        .replace("{current_fields}", str(current_fields))
+    )
     messages = [{"role": "system", "content": system}] + history
     response = completion(
         model=MODEL,
