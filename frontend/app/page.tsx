@@ -1,84 +1,64 @@
 "use client";
 
-import { useState } from "react";
-import NdaForm from "@/components/NdaForm";
-import NdaPreview from "@/components/NdaPreview";
-import { defaultFormData, NdaFormData } from "@/lib/types";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
-export default function Home() {
-  const [formData, setFormData] = useState<NdaFormData>(() => ({
-    ...defaultFormData,
-    effectiveDate: new Date().toISOString().split("T")[0],
-  }));
-  const [downloading, setDownloading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"form" | "preview">("form");
+export default function LoginPage() {
+  const router = useRouter();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
 
-  const handleDownload = async () => {
-    setDownloading(true);
-    try {
-      const [{ pdf }, { default: NdaPdf }] = await Promise.all([
-        import("@react-pdf/renderer"),
-        import("@/components/NdaPdf"),
-      ]);
-      const blob = await pdf(<NdaPdf data={formData} />).toBlob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "mutual-nda.pdf";
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 100);
-    } finally {
-      setDownloading(false);
+  useEffect(() => {
+    if (localStorage.getItem("prelegal_user")) {
+      router.replace("/dashboard/");
     }
+  }, [router]);
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim() || !email.trim()) return;
+    localStorage.setItem("prelegal_user", JSON.stringify({ name: name.trim(), email: email.trim() }));
+    router.push("/dashboard/");
   };
 
   return (
-    <div className="flex flex-col h-screen bg-slate-100 overflow-hidden">
-      {/* Mobile tab bar — hidden on desktop */}
-      <div className="flex lg:hidden border-b border-slate-200 bg-white flex-shrink-0">
-        <button
-          onClick={() => setActiveTab("form")}
-          className={`flex-1 py-3 text-sm font-medium transition ${
-            activeTab === "form"
-              ? "text-blue-600 border-b-2 border-blue-600"
-              : "text-slate-500 hover:text-slate-700"
-          }`}
-        >
-          Form
-        </button>
-        <button
-          onClick={() => setActiveTab("preview")}
-          className={`flex-1 py-3 text-sm font-medium transition ${
-            activeTab === "preview"
-              ? "text-blue-600 border-b-2 border-blue-600"
-              : "text-slate-500 hover:text-slate-700"
-          }`}
-        >
-          Preview
-        </button>
-      </div>
+    <div className="min-h-screen flex items-center justify-center bg-[#032147]">
+      <div className="bg-white rounded-2xl shadow-xl p-10 w-full max-w-md">
+        <div className="mb-8 text-center">
+          <h1 className="text-3xl font-bold text-[#032147] mb-1">Prelegal</h1>
+          <p className="text-[#888888] text-sm">Legal documents made simple</p>
+        </div>
 
-      {/* Main content area */}
-      <div className="flex flex-1 overflow-hidden">
-        <aside
-          className={`w-full lg:w-96 flex-shrink-0 bg-white border-r border-slate-200 flex-col overflow-hidden ${
-            activeTab === "form" ? "flex" : "hidden"
-          } lg:flex`}
-        >
-          <NdaForm data={formData} onChange={setFormData} onDownload={handleDownload} downloading={downloading} />
-        </aside>
-
-        <main
-          className={`flex-1 overflow-y-auto ${
-            activeTab === "preview" ? "block" : "hidden"
-          } lg:block`}
-        >
-          <div className="max-w-4xl mx-auto py-8 px-4 lg:px-6">
-            <div className="bg-white shadow-sm rounded-lg overflow-hidden">
-              <NdaPreview data={formData} />
-            </div>
+        <form onSubmit={handleLogin} className="flex flex-col gap-4">
+          <div>
+            <label className="block text-sm font-medium text-[#032147] mb-1">Name</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Your name"
+              required
+              className="w-full border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#209dd7]"
+            />
           </div>
-        </main>
+          <div>
+            <label className="block text-sm font-medium text-[#032147] mb-1">Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              required
+              className="w-full border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#209dd7]"
+            />
+          </div>
+          <button
+            type="submit"
+            className="mt-2 bg-[#753991] text-white rounded-lg py-2.5 font-semibold text-sm hover:opacity-90 transition"
+          >
+            Sign in
+          </button>
+        </form>
       </div>
     </div>
   );
