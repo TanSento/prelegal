@@ -1,20 +1,22 @@
 import { ChatMessage } from "./types";
 
-const KEY = "prelegal_chat_nda";
+function key(docType: string | null): string {
+  return `prelegal_chat_${docType ?? "pending"}`;
+}
 
-export function loadMessages(): ChatMessage[] {
+export function loadMessages(docType: string | null): ChatMessage[] {
   try {
-    const raw = sessionStorage.getItem(KEY);
+    const raw = sessionStorage.getItem(key(docType));
     return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
   }
 }
 
-export function saveMessages(messages: ChatMessage[]): void {
-  sessionStorage.setItem(KEY, JSON.stringify(messages));
+export function saveMessages(docType: string | null, messages: ChatMessage[]): void {
+  sessionStorage.setItem(key(docType), JSON.stringify(messages));
 }
 
-export function clearMessages(): void {
-  sessionStorage.removeItem(KEY);
+export function clearMessages(docType: string | null): void {
+  sessionStorage.removeItem(key(docType));
 }

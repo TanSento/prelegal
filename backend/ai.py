@@ -1,7 +1,8 @@
 import datetime
-from typing import Optional, Literal
+from typing import Optional, Literal, Union
 from pydantic import BaseModel
 from litellm import completion
+from doc_configs import DOCUMENT_PROMPTS, SELECTION_SYSTEM_PROMPT
 
 MODEL = "openrouter/openai/gpt-oss-120b"
 EXTRA_BODY = {"provider": {"order": ["cerebras"]}}
@@ -60,6 +61,11 @@ If the user asks to clear fields (e.g. "clear all", "reset", "start over", "clea
 Return JSON with:
 - "message": your conversational reply (include examples when asking questions)
 - "fields": only the fields you are confident about from this turn; omit everything else
+
+## Critical rule
+If there are any required fields still empty, your message MUST end with a complete, fully-formed question.
+Never trail off. Never say "Next up..." without finishing the question.
+Never end your message without a question when there is still information to collect.
 """
 
 
@@ -97,6 +103,24 @@ class AiResponse(BaseModel):
     fields: PartialNdaFields
 
 
+class SelectionFields(BaseModel):
+    docType: Optional[str] = None
+
+
+class SelectionAiResponse(BaseModel):
+    message: str
+    fields: SelectionFields
+
+
+class PartialGenericFields(BaseModel):
+    fields: Optional[dict[str, Optional[str]]] = None
+
+
+class GenericAiResponse(BaseModel):
+    message: str
+    fields: PartialGenericFields
+
+
 def _date_lookup() -> str:
     """Pre-compute a date shorthand lookup table for today."""
     today = datetime.date.today()
@@ -108,31 +132,63 @@ def _date_lookup() -> str:
     lines.append(f'   "tomorrow" / "tmr"         → {tomorrow.isoformat()}')
 
     for i, (short, full) in enumerate(zip(day_names, full_names)):
-        # bare: nearest upcoming occurrence (today counts if today matches)
         days_ahead = (i - today.weekday()) % 7
         bare_date = today + datetime.timedelta(days=days_ahead)
-        # "next": always the following week's occurrence
         next_date = bare_date + datetime.timedelta(days=7)
         lines.append(f'   "{short}" / "{full}"{"" if len(full) >= 9 else " " * (9 - len(full))}  → {bare_date.isoformat()}   |   "next {short}" / "next {full}" → {next_date.isoformat()}')
 
     return "\n".join(lines)
 
 
-def get_ai_response(history: list[dict], current_fields: dict) -> AiResponse:
-    """Call the LLM with chat history and current NDA fields, return structured response."""
-    system = (
-        SYSTEM_PROMPT
-        .replace("{date_lookup}", _date_lookup())
-        .replace("{current_fields}", str(current_fields))
-    )
+def get_ai_response(
+    history: list[dict],
+    current_fields: dict,
+    doc_type: str | None = None,
+) -> Union[AiResponse, SelectionAiResponse, GenericAiResponse]:
+    """Call the LLM with chat history and current fields, dispatching by doc_type."""
+    date_lookup = _date_lookup()
+
+    if doc_type is None:
+        # Phase 1: document selection
+        system = (
+            SELECTION_SYSTEM_PROMPT
+            .replace("{current_fields}", str(current_fields))
+        )
+        response_format = SelectionAiResponse
+    elif doc_type == "nda":
+        # NDA: use typed structured output
+        system = (
+            SYSTEM_PROMPT
+            .replace("{date_lookup}", date_lookup)
+            .replace("{current_fields}", str(current_fields))
+        )
+        response_format = AiResponse
+    else:
+        # Generic doc: use dict-based fields
+        prompt_template = DOCUMENT_PROMPTS.get(doc_type, "")
+        if not prompt_template:
+            # Unsupported doc type — fall back to selection phase
+            system = (
+                SELECTION_SYSTEM_PROMPT
+                .replace("{current_fields}", str(current_fields))
+            )
+            response_format = SelectionAiResponse
+        else:
+            system = (
+                prompt_template
+                .replace("{date_lookup}", date_lookup)
+                .replace("{current_fields}", str(current_fields))
+            )
+            response_format = GenericAiResponse
+
     messages = [{"role": "system", "content": system}] + history
     response = completion(
         model=MODEL,
         messages=messages,
-        response_format=AiResponse,
+        response_format=response_format,
         reasoning_effort="low",
         timeout=30,
         extra_body=EXTRA_BODY,
     )
     raw = response.choices[0].message.content
-    return AiResponse.model_validate_json(raw)
+    return response_format.model_validate_json(raw)

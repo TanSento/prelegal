@@ -43,3 +43,12 @@ export const defaultFormData: NdaFormData = {
   party1: { name: "", title: "", company: "", noticeAddress: "", date: "" },
   party2: { name: "", title: "", company: "", noticeAddress: "", date: "" },
 };
+
+export interface GenericFormData {
+  docType: string;
+  fields: Record<string, string>;
+}
+
+export function defaultGenericFormData(docType: string): GenericFormData {
+  return { docType, fields: {} };
+}

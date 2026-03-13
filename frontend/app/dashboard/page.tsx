@@ -4,14 +4,21 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import ChatPanel from "@/components/ChatPanel";
 import NdaPreview from "@/components/NdaPreview";
-import { defaultFormData, NdaFormData } from "@/lib/types";
+import TemplatePreview from "@/components/TemplatePreview";
+import { defaultFormData, defaultGenericFormData, GenericFormData, NdaFormData } from "@/lib/types";
+import { clearMessages } from "@/lib/chat-storage";
 
 export default function Dashboard() {
   const router = useRouter();
   const [user, setUser] = useState<{ name: string; email: string } | null>(null);
-  const [formData, setFormData] = useState<NdaFormData>(() => {
+  const [docType, setDocType] = useState<string | null>(() => {
+    try { return sessionStorage.getItem("prelegal_doc_type") ?? null; } catch { return null; }
+  });
+  const [formData, setFormData] = useState<NdaFormData | GenericFormData>(() => {
     try {
-      const saved = sessionStorage.getItem("prelegal_form_nda");
+      const dt = sessionStorage.getItem("prelegal_doc_type");
+      const key = `prelegal_form_${dt ?? "pending"}`;
+      const saved = sessionStorage.getItem(key);
       if (saved) return JSON.parse(saved);
     } catch {}
     return { ...defaultFormData, effectiveDate: new Date().toISOString().split("T")[0] };
@@ -28,9 +35,24 @@ export default function Dashboard() {
     setUser(JSON.parse(stored));
   }, [router]);
 
+  // Persist form data whenever it changes
   useEffect(() => {
-    sessionStorage.setItem("prelegal_form_nda", JSON.stringify(formData));
-  }, [formData]);
+    const key = `prelegal_form_${docType ?? "pending"}`;
+    sessionStorage.setItem(key, JSON.stringify(formData));
+  }, [formData, docType]);
+
+  const handleDocTypeChange = (newDocType: string) => {
+    setDocType(newDocType);
+    sessionStorage.setItem("prelegal_doc_type", newDocType);
+    // Clear chat for the new doc type so it starts fresh with the doc-specific greeting
+    clearMessages(newDocType);
+    // Init fresh form data for the new doc type
+    if (newDocType === "nda") {
+      setFormData({ ...defaultFormData, effectiveDate: new Date().toISOString().split("T")[0] });
+    } else {
+      setFormData(defaultGenericFormData(newDocType));
+    }
+  };
 
   const handleLogout = () => {
     localStorage.removeItem("prelegal_user");
@@ -38,25 +60,43 @@ export default function Dashboard() {
   };
 
   const handleDownload = async () => {
+    if (!docType) return;
     setDownloading(true);
     try {
-      const [{ pdf }, { default: NdaPdf }] = await Promise.all([
-        import("@react-pdf/renderer"),
-        import("@/components/NdaPdf"),
-      ]);
-      const blob = await pdf(<NdaPdf data={formData} />).toBlob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "mutual-nda.pdf";
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 100);
+      if (docType === "nda") {
+        const [{ pdf }, { default: NdaPdf }] = await Promise.all([
+          import("@react-pdf/renderer"),
+          import("@/components/NdaPdf"),
+        ]);
+        const blob = await pdf(<NdaPdf data={formData as NdaFormData} />).toBlob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "mutual-nda.pdf";
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 100);
+      } else {
+        const [{ pdf }, { default: TemplatePdf }] = await Promise.all([
+          import("@react-pdf/renderer"),
+          import("@/components/TemplatePdf"),
+        ]);
+        const gData = formData as GenericFormData;
+        const blob = await pdf(<TemplatePdf docType={docType} fields={gData.fields} />).toBlob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${docType}.pdf`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 100);
+      }
     } finally {
       setDownloading(false);
     }
   };
 
   if (!user) return null;
+
+  const showPreview = docType !== null;
 
   return (
     <div className="flex flex-col h-screen bg-slate-100 overflow-hidden">
@@ -105,7 +145,14 @@ export default function Dashboard() {
             activeTab === "chat" ? "flex" : "hidden"
           } lg:flex`}
         >
-          <ChatPanel data={formData} onChange={setFormData} onDownload={handleDownload} downloading={downloading} />
+          <ChatPanel
+            data={formData}
+            docType={docType}
+            onChange={setFormData}
+            onDocTypeChange={handleDocTypeChange}
+            onDownload={handleDownload}
+            downloading={downloading}
+          />
         </aside>
 
         <main
@@ -114,9 +161,24 @@ export default function Dashboard() {
           } lg:block`}
         >
           <div className="max-w-4xl mx-auto py-8 px-4 lg:px-6">
-            <div className="bg-white shadow-sm rounded-lg overflow-hidden">
-              <NdaPreview data={formData} />
-            </div>
+            {showPreview ? (
+              <div className="bg-white shadow-sm rounded-lg overflow-hidden">
+                {docType === "nda" ? (
+                  <NdaPreview data={formData as NdaFormData} />
+                ) : (
+                  <TemplatePreview
+                    docType={docType}
+                    fields={(formData as GenericFormData).fields}
+                  />
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-64">
+                <p className="text-slate-400 text-sm">
+                  Choose a document type in the chat to see a preview here.
+                </p>
+              </div>
+            )}
           </div>
         </main>
       </div>

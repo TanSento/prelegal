@@ -1,22 +1,23 @@
-import { ChatMessage, NdaFormData } from "./types";
+import { ChatMessage, GenericFormData, NdaFormData } from "./types";
 
 interface StreamCallbacks {
   onToken: (text: string) => void;
-  onFields: (fields: Partial<NdaFormData>) => void;
+  onFields: (fields: Partial<NdaFormData> | { fields: Record<string, string> } | { docType: string }) => void;
   onDone: () => void;
   onError: (message: string) => void;
 }
 
 export async function streamChat(
   messages: ChatMessage[],
-  formData: NdaFormData,
+  formData: NdaFormData | GenericFormData,
   callbacks: StreamCallbacks,
+  docType: string | null,
   signal?: AbortSignal
 ): Promise<void> {
   const resp = await fetch("/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messages, formData }),
+    body: JSON.stringify({ messages, formData, docType }),
     signal,
   });
 
@@ -79,4 +80,12 @@ export function mergeFields(current: NdaFormData, incoming: Partial<NdaFormData>
     }
   }
   return result;
+}
+
+/** Merge generic fields into current generic form data. */
+export function mergeGenericFields(
+  current: GenericFormData,
+  incoming: Record<string, string>
+): GenericFormData {
+  return { ...current, fields: { ...current.fields, ...incoming } };
 }
