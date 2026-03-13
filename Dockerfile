@@ -16,6 +16,7 @@ COPY backend/pyproject.toml backend/uv.lock* ./
 RUN uv sync --no-dev
 
 COPY backend/ ./
+COPY catalog.json ./
 COPY --from=frontend-builder /frontend/out ./static
 
 ENV STATIC_DIR=/app/static

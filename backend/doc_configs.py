@@ -2,7 +2,9 @@
 import json
 from pathlib import Path
 
-_catalog_path = Path(__file__).parent.parent / "catalog.json"
+_catalog_path = Path(__file__).parent / "catalog.json"
+if not _catalog_path.exists():
+    _catalog_path = Path(__file__).parent.parent / "catalog.json"
 with open(_catalog_path) as f:
     _catalog_raw = json.load(f)
 
