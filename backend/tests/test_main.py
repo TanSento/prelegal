@@ -1,5 +1,6 @@
 """Integration tests for main.py FastAPI endpoints — LiteLLM is mocked."""
 import json
+from contextlib import asynccontextmanager
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -19,6 +20,14 @@ def _make_unified_response(message: str, **kwargs) -> MagicMock:
     resp.isComplete = kwargs.get("isComplete")
     resp.suggestedDocument = kwargs.get("suggestedDocument")
     return resp
+
+
+def _make_stream(resp: MagicMock):
+    """Return an async generator that simulates stream_ai_response output."""
+    async def _gen(*args, **kwargs):
+        yield resp.message   # str: message characters
+        yield resp           # UnifiedAiResponse: structured data
+    return _gen
 
 
 @pytest.fixture
@@ -47,17 +56,14 @@ def _parse_sse(text: str) -> list[dict]:
     return events
 
 
-@patch("main.get_ai_response")
-def test_chat_emits_doc_type_event(mock_ai, client):
+def test_chat_emits_doc_type_event(client):
     """AI identifies doc type → docType emitted in fields event."""
-    mock_ai.return_value = _make_unified_response(
-        "Sounds like you need a Mutual NDA.",
-        documentType="nda",
-    )
-    resp = client.post("/api/chat", json={
-        "messages": [{"role": "user", "content": "I need an NDA"}],
-        "formData": {},
-    })
+    resp_obj = _make_unified_response("Sounds like you need a Mutual NDA.", documentType="nda")
+    with patch("main.stream_ai_response", _make_stream(resp_obj)):
+        resp = client.post("/api/chat", json={
+            "messages": [{"role": "user", "content": "I need an NDA"}],
+            "formData": {},
+        })
     assert resp.status_code == 200
 
     events = _parse_sse(resp.text)
@@ -70,10 +76,9 @@ def test_chat_emits_doc_type_event(mock_ai, client):
     assert fields_event["data"]["docType"] == "nda"
 
 
-@patch("main.get_ai_response")
-def test_chat_emits_nda_fields_remapped(mock_ai, client):
+def test_chat_emits_nda_fields_remapped(client):
     """NDA fields are remapped from flat to nested structure."""
-    mock_ai.return_value = _make_unified_response(
+    resp_obj = _make_unified_response(
         "Got it. What governing law should apply?",
         documentType="nda",
         fields={
@@ -83,37 +88,33 @@ def test_chat_emits_nda_fields_remapped(mock_ai, client):
             "mndaTermYears": "2",
         },
     )
-    resp = client.post("/api/chat", json={
-        "messages": [{"role": "user", "content": "Purpose is evaluating acquisition"}],
-        "formData": {},
-        "docType": "nda",
-    })
+    with patch("main.stream_ai_response", _make_stream(resp_obj)):
+        resp = client.post("/api/chat", json={
+            "messages": [{"role": "user", "content": "Purpose is evaluating acquisition"}],
+            "formData": {},
+            "docType": "nda",
+        })
     assert resp.status_code == 200
 
     events = _parse_sse(resp.text)
-    # First fields event is docType, second is the NDA fields
     fields_events = [e for e in events if e["event"] == "fields"]
     assert len(fields_events) >= 1
 
-    # Find the fields event with NDA data (not docType)
     nda_event = next((e for e in fields_events if "purpose" in e["data"]), None)
     assert nda_event is not None
     assert nda_event["data"]["purpose"] == "Evaluating acquisition"
     assert nda_event["data"]["mndaTerm"] == {"type": "expires", "years": 2}
 
 
-@patch("main.get_ai_response")
-def test_chat_emits_generic_fields(mock_ai, client):
+def test_chat_emits_generic_fields(client):
     """Generic doc fields emitted under 'fields' key."""
-    mock_ai.return_value = _make_unified_response(
-        "Got it. What is the customer name?",
-        fields={"provider": "Acme Inc."},
-    )
-    resp = client.post("/api/chat", json={
-        "messages": [{"role": "user", "content": "Provider is Acme"}],
-        "formData": {},
-        "docType": "csa",
-    })
+    resp_obj = _make_unified_response("Got it. What is the customer name?", fields={"provider": "Acme Inc."})
+    with patch("main.stream_ai_response", _make_stream(resp_obj)):
+        resp = client.post("/api/chat", json={
+            "messages": [{"role": "user", "content": "Provider is Acme"}],
+            "formData": {},
+            "docType": "csa",
+        })
     assert resp.status_code == 200
 
     events = _parse_sse(resp.text)
@@ -122,18 +123,18 @@ def test_chat_emits_generic_fields(mock_ai, client):
     assert fields_event["data"] == {"fields": {"provider": "Acme Inc."}}
 
 
-@patch("main.get_ai_response")
-def test_chat_nda_with_party_info(mock_ai, client):
+def test_chat_nda_with_party_info(client):
     """NDA party info is included in remapped fields."""
-    mock_ai.return_value = _make_unified_response(
+    resp_obj = _make_unified_response(
         "Got it. Now let's get Party 2 details.",
         party1=PartialPartyInfo(company="Alpha Corp", name="Jane Doe", title="CEO"),
     )
-    resp = client.post("/api/chat", json={
-        "messages": [{"role": "user", "content": "Party 1 is Jane Doe, CEO of Alpha Corp"}],
-        "formData": {},
-        "docType": "nda",
-    })
+    with patch("main.stream_ai_response", _make_stream(resp_obj)):
+        resp = client.post("/api/chat", json={
+            "messages": [{"role": "user", "content": "Party 1 is Jane Doe, CEO of Alpha Corp"}],
+            "formData": {},
+            "docType": "nda",
+        })
     assert resp.status_code == 200
 
     events = _parse_sse(resp.text)
@@ -148,18 +149,18 @@ def test_chat_missing_body(client):
     assert resp.status_code == 422
 
 
-@patch("main.get_ai_response")
-def test_chat_normalizes_uppercase_doc_type(mock_ai, client):
+def test_chat_normalizes_uppercase_doc_type(client):
     """AI returns documentType='NDA' → SSE emits docType='nda' and NDA remapping is applied."""
-    mock_ai.return_value = _make_unified_response(
+    resp_obj = _make_unified_response(
         "Sounds like you need an NDA.",
         documentType="NDA",
         fields={"purpose": "Partnership evaluation"},
     )
-    resp = client.post("/api/chat", json={
-        "messages": [{"role": "user", "content": "I need an NDA"}],
-        "formData": {},
-    })
+    with patch("main.stream_ai_response", _make_stream(resp_obj)):
+        resp = client.post("/api/chat", json={
+            "messages": [{"role": "user", "content": "I need an NDA"}],
+            "formData": {},
+        })
     assert resp.status_code == 200
 
     events = _parse_sse(resp.text)
@@ -168,22 +169,21 @@ def test_chat_normalizes_uppercase_doc_type(mock_ai, client):
     assert doc_type_event is not None
     assert doc_type_event["data"]["docType"] == "nda"
 
-    # NDA remapping should have been applied (nested fields, not flat)
     nda_event = next((e for e in fields_events if "purpose" in e["data"]), None)
     assert nda_event is not None
 
 
-@patch("main.get_ai_response")
-def test_chat_normalizes_full_name_doc_type(mock_ai, client):
+def test_chat_normalizes_full_name_doc_type(client):
     """AI returns full name → SSE emits canonical short key."""
-    mock_ai.return_value = _make_unified_response(
+    resp_obj = _make_unified_response(
         "Creating a Mutual NDA for you.",
         documentType="Mutual Non-Disclosure Agreement",
     )
-    resp = client.post("/api/chat", json={
-        "messages": [{"role": "user", "content": "I need a mutual NDA"}],
-        "formData": {},
-    })
+    with patch("main.stream_ai_response", _make_stream(resp_obj)):
+        resp = client.post("/api/chat", json={
+            "messages": [{"role": "user", "content": "I need a mutual NDA"}],
+            "formData": {},
+        })
     assert resp.status_code == 200
 
     events = _parse_sse(resp.text)
@@ -192,10 +192,9 @@ def test_chat_normalizes_full_name_doc_type(mock_ai, client):
     assert fields_event["data"]["docType"] == "nda"
 
 
-@patch("main.get_ai_response")
-def test_chat_normalizes_nda_enum_fields(mock_ai, client):
+def test_chat_normalizes_nda_enum_fields(client):
     """AI returns capitalized enum values → emitted fields contain lowercase values."""
-    mock_ai.return_value = _make_unified_response(
+    resp_obj = _make_unified_response(
         "Got it.",
         fields={
             "mndaTermType": "Expires",
@@ -204,11 +203,12 @@ def test_chat_normalizes_nda_enum_fields(mock_ai, client):
             "confidentialityTermYears": "3",
         },
     )
-    resp = client.post("/api/chat", json={
-        "messages": [{"role": "user", "content": "Expires after 2 years"}],
-        "formData": {},
-        "docType": "nda",
-    })
+    with patch("main.stream_ai_response", _make_stream(resp_obj)):
+        resp = client.post("/api/chat", json={
+            "messages": [{"role": "user", "content": "Expires after 2 years"}],
+            "formData": {},
+            "docType": "nda",
+        })
     assert resp.status_code == 200
 
     events = _parse_sse(resp.text)

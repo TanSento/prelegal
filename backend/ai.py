@@ -1,7 +1,7 @@
 import datetime
-from typing import Optional
+from typing import AsyncIterator, Optional
 from pydantic import BaseModel
-from litellm import completion
+from litellm import acompletion, completion
 from doc_configs import DOCUMENT_CATALOG_TEXT
 
 MODEL = "openrouter/openai/gpt-oss-120b"
@@ -183,6 +183,50 @@ def _date_lookup() -> str:
     return "\n".join(lines)
 
 
+class _MessageStreamer:
+    """Extract the 'message' field characters from a streaming JSON response."""
+
+    _LOOKING = 0   # scanning for "message" key
+    _FOUND_KEY = 1  # found key, waiting for colon then opening quote
+    _IN_VALUE = 2   # inside the string value — emit chars
+    _DONE = 3
+
+    def __init__(self):
+        self._state = self._LOOKING
+        self._buf = ""
+        self._escape = False
+
+    def feed(self, chunk: str) -> str:
+        """Return any message characters ready to emit from this chunk."""
+        out = []
+        for ch in chunk:
+            if self._state == self._LOOKING:
+                self._buf += ch
+                if '"message"' in self._buf:
+                    self._state = self._FOUND_KEY
+                    self._buf = ""
+            elif self._state == self._FOUND_KEY:
+                if ch == '"':
+                    self._state = self._IN_VALUE
+                    self._escape = False
+            elif self._state == self._IN_VALUE:
+                if self._escape:
+                    self._escape = False
+                    if ch == "n":
+                        out.append("\n")
+                    elif ch == "t":
+                        out.append("\t")
+                    else:
+                        out.append(ch)
+                elif ch == "\\":
+                    self._escape = True
+                elif ch == '"':
+                    self._state = self._DONE
+                else:
+                    out.append(ch)
+        return "".join(out)
+
+
 def _repair_json(raw: str) -> str:
     """Replace literal newlines/carriage returns inside JSON string values with escape sequences.
 
@@ -236,3 +280,44 @@ def get_ai_response(
         return UnifiedAiResponse.model_validate_json(raw)
     except Exception:
         return UnifiedAiResponse.model_validate_json(_repair_json(raw))
+
+
+async def stream_ai_response(
+    history: list[dict],
+    current_fields: dict,
+    doc_type: str | None = None,
+) -> AsyncIterator[str | UnifiedAiResponse]:
+    """Stream AI response. Yields str chunks for message tokens, then a UnifiedAiResponse.
+
+    Uses LiteLLM streaming so the first tokens reach the frontend as soon as the model
+    starts generating — eliminates the full-response wait that causes the 'thinking' spinner.
+    """
+    system = (
+        SYSTEM_PROMPT
+        .replace("{date_lookup}", _date_lookup())
+        .replace("{current_fields}", str(current_fields))
+    )
+    messages = [{"role": "system", "content": system}] + history
+    response = await acompletion(
+        model=MODEL,
+        messages=messages,
+        response_format=UnifiedAiResponse,
+        stream=True,
+        reasoning_effort="low",
+        timeout=60,
+        extra_body=EXTRA_BODY,
+    )
+    full_content = ""
+    streamer = _MessageStreamer()
+    async for chunk in response:
+        delta = chunk.choices[0].delta.content or ""
+        if delta:
+            full_content += delta
+            msg_chars = streamer.feed(delta)
+            if msg_chars:
+                yield msg_chars
+    # Parse full accumulated JSON for structured fields
+    try:
+        yield UnifiedAiResponse.model_validate_json(full_content)
+    except Exception:
+        yield UnifiedAiResponse.model_validate_json(_repair_json(full_content))

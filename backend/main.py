@@ -1,4 +1,3 @@
-import asyncio
 import json
 import os
 from contextlib import asynccontextmanager
@@ -13,7 +12,7 @@ from pydantic import BaseModel
 load_dotenv()
 
 from database import init_db
-from ai import get_ai_response, UnifiedAiResponse, PartialPartyInfo
+from ai import stream_ai_response, UnifiedAiResponse, PartialPartyInfo
 from doc_configs import DOC_TYPE_MAP
 
 _FULL_NAME_TO_KEY = {v.lower(): k for k, v in DOC_TYPE_MAP.items()}
@@ -101,12 +100,28 @@ async def chat(req: ChatRequest):
     async def generate():
         try:
             history = [{"role": m.role, "content": m.content} for m in req.messages]
-            ai_resp = await asyncio.to_thread(get_ai_response, history, req.formData, req.docType)
 
-            # Stream the message word by word
-            for word in ai_resp.message.split(" "):
-                yield f"event: token\ndata: {json.dumps({'text': word + ' '})}\n\n"
-                await asyncio.sleep(0.02)
+            ai_resp = None
+            word_buf = ""
+            async for item in stream_ai_response(history, req.formData, req.docType):
+                if isinstance(item, str):
+                    # Stream message characters word by word as they arrive
+                    for ch in item:
+                        if ch == " ":
+                            if word_buf:
+                                yield f"event: token\ndata: {json.dumps({'text': word_buf + ' '})}\n\n"
+                                word_buf = ""
+                        else:
+                            word_buf += ch
+                else:
+                    ai_resp = item
+
+            # Flush any remaining word
+            if word_buf:
+                yield f"event: token\ndata: {json.dumps({'text': word_buf})}\n\n"
+
+            if ai_resp is None:
+                raise ValueError("No response received from AI")
 
             # Emit docType event if AI identified document
             doc_type = _normalize_doc_type(ai_resp.documentType)
