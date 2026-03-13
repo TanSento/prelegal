@@ -30,6 +30,8 @@ export async function streamChat(
   const decoder = new TextDecoder();
   let buffer = "";
 
+  let doneEmitted = false;
+
   try {
     while (true) {
       const { done, value } = await reader.read();
@@ -55,10 +57,11 @@ export async function streamChat(
 
         if (event === "token") callbacks.onToken(data.text);
         else if (event === "fields") callbacks.onFields(data);
-        else if (event === "done") callbacks.onDone();
+        else if (event === "done") { doneEmitted = true; callbacks.onDone(); }
         else if (event === "error") callbacks.onError(data.message);
       }
     }
+    if (!doneEmitted) callbacks.onDone();
   } catch (err: any) {
     if (err?.name !== "AbortError") {
       callbacks.onError(err?.message ?? "Stream read failed");

@@ -60,6 +60,8 @@ export default function ChatPanel({
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const dataRef = useRef(data);
+  const streamingRef = useRef(false);
+  const docTypeRef = useRef(docType);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -67,8 +69,17 @@ export default function ChatPanel({
     dataRef.current = data;
   }, [data]);
 
+  useEffect(() => {
+    streamingRef.current = streaming;
+  }, [streaming]);
+
+  useEffect(() => {
+    docTypeRef.current = docType;
+  }, [docType]);
+
   // Load messages when docType changes
   useEffect(() => {
+    if (streamingRef.current) return;
     const saved = loadMessages(docType);
     if (saved.length === 0) {
       const greetingText =
@@ -137,7 +148,7 @@ export default function ChatPanel({
             };
             const finalMessages = [...nextMessages, assistantMsg];
             setMessages(finalMessages);
-            saveMessages(docType, finalMessages);
+            saveMessages(docTypeRef.current, finalMessages);
             setStreamingText("");
             setStreaming(false);
             inputRef.current?.focus();
