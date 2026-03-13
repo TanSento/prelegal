@@ -121,6 +121,9 @@ export default function ChatPanel({
 
     let accumulated = "";
     const history = nextMessages.slice(-10);
+    // Track docType resolved from the stream — updated immediately in onFields,
+    // before React effects have a chance to commit the new docTypeRef value.
+    let resolvedDocType = docType;
 
     try {
       await streamChat(
@@ -133,6 +136,7 @@ export default function ChatPanel({
           },
           onFields: (fields) => {
             if ("docType" in fields && typeof fields.docType === "string") {
+              resolvedDocType = fields.docType;
               onDocTypeChange(fields.docType);
             } else if ("fields" in fields && typeof fields.fields === "object") {
               onChange(mergeGenericFields(dataRef.current as GenericFormData, fields.fields as Record<string, string>));
@@ -148,7 +152,7 @@ export default function ChatPanel({
             };
             const finalMessages = [...nextMessages, assistantMsg];
             setMessages(finalMessages);
-            saveMessages(docTypeRef.current, finalMessages);
+            saveMessages(resolvedDocType, finalMessages);
             setStreamingText("");
             setStreaming(false);
             inputRef.current?.focus();
