@@ -140,6 +140,7 @@ GUIDELINES:
 - When you have ALL required information, summarize the details and set isComplete to true
 
 In your response field, write your conversational reply to the user.
+IMPORTANT: Keep your message to 1-3 sentences. Never include the full document text in your message.
 In the other fields, extract any information the user has provided so far.
 Only set isComplete to true when you have gathered all required information."""
 )
@@ -182,6 +183,34 @@ def _date_lookup() -> str:
     return "\n".join(lines)
 
 
+def _repair_json(raw: str) -> str:
+    """Replace literal newlines/carriage returns inside JSON string values with escape sequences.
+
+    Cerebras occasionally returns JSON with unescaped newlines inside string values,
+    producing parse errors at high line numbers.
+    """
+    result = []
+    in_string = False
+    escape_next = False
+    for ch in raw:
+        if escape_next:
+            result.append(ch)
+            escape_next = False
+        elif ch == "\\" and in_string:
+            result.append(ch)
+            escape_next = True
+        elif ch == '"':
+            in_string = not in_string
+            result.append(ch)
+        elif ch == "\n" and in_string:
+            result.append("\\n")
+        elif ch == "\r" and in_string:
+            result.append("\\r")
+        else:
+            result.append(ch)
+    return "".join(result)
+
+
 def get_ai_response(
     history: list[dict],
     current_fields: dict,
@@ -203,4 +232,7 @@ def get_ai_response(
         extra_body=EXTRA_BODY,
     )
     raw = response.choices[0].message.content
-    return UnifiedAiResponse.model_validate_json(raw)
+    try:
+        return UnifiedAiResponse.model_validate_json(raw)
+    except Exception:
+        return UnifiedAiResponse.model_validate_json(_repair_json(raw))
