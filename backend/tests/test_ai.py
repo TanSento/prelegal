@@ -1,11 +1,12 @@
 """Unit tests for ai.py — all LiteLLM calls are mocked."""
 import datetime
 import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from litellm.exceptions import MidStreamFallbackError
 
-from ai import UnifiedAiResponse, _date_lookup, _repair_json, get_ai_response
+from ai import UnifiedAiResponse, _date_lookup, _repair_json, get_ai_response, stream_ai_response
 
 
 def _make_completion_response(data: dict) -> MagicMock:
@@ -134,6 +135,41 @@ def test_get_ai_response_retries_on_invalid_json(mock_completion):
     assert isinstance(result, UnifiedAiResponse)
     assert result.documentType == "nda"
     assert "Section 1" in result.message
+
+
+@pytest.mark.asyncio
+async def test_stream_ai_response_recovers_from_mid_stream_fallback():
+    """stream_ai_response yields UnifiedAiResponse even when Cerebras loops (MidStreamFallbackError)."""
+    valid_json = (
+        '{"message": "Sounds like you need an NDA.", "documentType": "nda", '
+        '"fields": null, "party1": null, "party2": null, "isComplete": null, "suggestedDocument": null}'
+    )
+
+    def _chunk(content):
+        c = MagicMock()
+        c.choices[0].delta.content = content
+        return c
+
+    async def _mock_acompletion(*args, **kwargs):
+        async def _stream():
+            for ch in valid_json:
+                yield _chunk(ch)
+            raise MidStreamFallbackError(
+                message="The model is repeating the same chunk = .   .",
+                model="",
+                llm_provider="",
+            )
+        return _stream()
+
+    with patch("ai.acompletion", new=_mock_acompletion):
+        items = []
+        async for item in stream_ai_response([{"role": "user", "content": "NDA"}], {}):
+            items.append(item)
+
+    structured = [i for i in items if isinstance(i, UnifiedAiResponse)]
+    assert len(structured) == 1, "Expected exactly one UnifiedAiResponse despite MidStreamFallbackError"
+    assert structured[0].documentType == "nda"
+    assert "NDA" in structured[0].message
 
 
 @patch("ai.completion")

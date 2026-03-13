@@ -2,6 +2,7 @@ import datetime
 from typing import AsyncIterator, Optional
 from pydantic import BaseModel
 from litellm import acompletion, completion
+from litellm.exceptions import MidStreamFallbackError
 from doc_configs import DOCUMENT_CATALOG_TEXT
 
 MODEL = "openrouter/openai/gpt-oss-120b"
@@ -309,13 +310,24 @@ async def stream_ai_response(
     )
     full_content = ""
     streamer = _MessageStreamer()
-    async for chunk in response:
-        delta = chunk.choices[0].delta.content or ""
-        if delta:
-            full_content += delta
-            msg_chars = streamer.feed(delta)
-            if msg_chars:
-                yield msg_chars
+    mid_stream_error = False
+    try:
+        async for chunk in response:
+            delta = chunk.choices[0].delta.content or ""
+            if delta:
+                full_content += delta
+                msg_chars = streamer.feed(delta)
+                if msg_chars:
+                    yield msg_chars
+    except MidStreamFallbackError:
+        mid_stream_error = True  # Cerebras stuck-loop; parse what we accumulated
+
+    # If Cerebras looped, truncate trailing garbage after the last closing brace
+    if mid_stream_error:
+        last_brace = full_content.rfind("}")
+        if last_brace >= 0:
+            full_content = full_content[: last_brace + 1]
+
     # Parse full accumulated JSON for structured fields
     try:
         yield UnifiedAiResponse.model_validate_json(full_content)
