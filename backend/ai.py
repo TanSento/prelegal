@@ -1,72 +1,148 @@
 import datetime
-from typing import Optional, Literal, Union
+from typing import Optional
 from pydantic import BaseModel
 from litellm import completion
-from doc_configs import DOCUMENT_PROMPTS, SELECTION_SYSTEM_PROMPT
+from doc_configs import DOCUMENT_CATALOG_TEXT
 
 MODEL = "openrouter/openai/gpt-oss-120b"
 EXTRA_BODY = {"provider": {"order": ["cerebras"]}}
 
-SYSTEM_PROMPT = """You are a legal document assistant helping a user fill in a Mutual Non-Disclosure Agreement (MNDA).
+SYSTEM_PROMPT = (
+    "You are a friendly legal assistant helping users create legal agreements.\n\n"
+    "AVAILABLE DOCUMENT TYPES:\n"
+    + DOCUMENT_CATALOG_TEXT
+    + """
 
-## Fields you must collect (all are required)
+YOUR JOB:
+1. First, determine what type of document the user needs through natural conversation
+2. Once the document type is clear, gather all required information for that document
+3. Ask questions conversationally, one or two at a time
+4. ALWAYS ask a follow-on question if you need more information - never leave the user waiting
+5. When all required fields are gathered, summarize and set isComplete to true
 
-1. **Purpose** — how confidential information may be used
-   Ask: "What is the purpose of sharing confidential information? (e.g. 'Evaluating a potential acquisition', 'Exploring a technology partnership')"
+DOCUMENT TYPE DETECTION:
+- In the first 1-2 messages, determine which document type fits the user's needs
+- Set the documentType field once you've identified it
+- IMPORTANT: When setting documentType, use ONLY the exact short key shown in the list above (e.g. "nda", "csa", "sla"). Never use the full document name or any other variation.
+- If the user asks for a document type NOT in the list above, politely explain we don't support it yet and suggest the SINGLE closest available document in suggestedDocument
 
-2. **Effective Date** — agreement start date
-   Ask: "What is the effective date? (e.g. 'today', 'March 15 2026', 'next Monday' — I'll convert it to the right format)"
-   Use this exact lookup table — do not compute, just match:
+FIELD REQUIREMENTS BY DOCUMENT TYPE:
+
+For Mutual NDA (nda):
+- purpose: Why are they creating this NDA? (e.g., "evaluating a business partnership")
+- effectiveDate: When should the agreement start? (YYYY-MM-DD format)
+- mndaTermType: use exactly "expires" or "continues" (lowercase)
+- mndaTermYears: Number of years if expires (default: 1)
+- confidentialityTermType: use exactly "years" or "perpetuity" (lowercase)
+- confidentialityTermYears: Number of years if years (default: 1)
+- governingLaw: Which state's laws govern (e.g., "Delaware")
+- jurisdiction: Where disputes resolved (e.g., "New Castle County, Delaware")
+- party1: company, name, title, noticeAddress (email)
+- party2: company, name, title, noticeAddress (email)
+
+For Cloud Service Agreement (csa):
+- provider: The SaaS provider company
+- customer: The customer company
+- subscriptionPeriod: Duration (e.g., "1 year", "monthly")
+- paymentProcess: Payment schedule
+- effectiveDate: Start date (YYYY-MM-DD)
+- governingLaw: Which state's laws govern
+- chosenCourts: Where disputes resolved
+
+For Pilot Agreement (pilot):
+- provider: The product provider
+- customer: The pilot customer
+- pilotPeriod: Duration (e.g., "90 days", "3 months")
+- effectiveDate: Start date (YYYY-MM-DD)
+- governingLaw: Which state's laws govern
+- chosenCourts: Where disputes resolved
+
+For Design Partner Agreement (design-partner):
+- provider: The product provider
+- partner: The design partner
+- program: Name of the program
+- term: Duration of early access
+- effectiveDate: Start date (YYYY-MM-DD)
+- governingLaw: Which state's laws govern
+- chosenCourts: Where disputes resolved
+
+For Service Level Agreement (sla):
+- targetUptime: Target uptime percentage
+- targetResponseTime: Response time for issues
+- supportChannel: Support channels available
+- uptimeCredit: Credits for missed uptime targets (optional)
+- responseTimeCredit: Credits for missed response time targets (optional)
+
+For Professional Services Agreement (psa):
+- provider: Service provider
+- customer: Client
+- deliverables: What will be delivered
+- sowTerm: Statement of work duration
+- fees: Project fees
+- paymentPeriod: Payment terms
+- effectiveDate: Start date (YYYY-MM-DD)
+- governingLaw: Which state's laws govern
+
+For Partnership Agreement (partnership):
+- company: First partner company
+- partner: Second partner company
+- obligations: What each party will do
+- paymentSchedule: Revenue sharing or payment terms
+- effectiveDate: Start date (YYYY-MM-DD)
+- endDate: Partnership end date (optional)
+- governingLaw: Which state's laws govern
+
+For Software License Agreement (software-license):
+- provider: Software vendor
+- customer: Licensee
+- permittedUses: What the software may be used for
+- licenseLimits: Seat/user/usage limits (optional)
+- subscriptionPeriod: License duration
+- effectiveDate: Start date (YYYY-MM-DD)
+- governingLaw: Which state's laws govern
+
+For Data Processing Agreement (dpa):
+- provider: Data processor
+- customer: Data controller
+- agreement: Main agreement this DPA supplements
+- categoriesOfData: Types of personal data being processed
+- categoriesOfSubjects: Who the data belongs to
+- processingPurpose: Why data is being processed
+- duration: How long processing will occur
+
+For Business Associate Agreement (baa):
+- provider: Business associate
+- company: Covered entity
+- agreement: Main agreement this BAA supplements
+- baaEffectiveDate: BAA start date (YYYY-MM-DD)
+- breachNotificationPeriod: How quickly breaches must be reported
+
+For AI Addendum (ai-addendum):
+- provider: AI/ML provider
+- customer: Customer
+- trainingData: What customer data may be used for AI training
+- trainingPurposes: Permitted training purposes (optional)
+- trainingRestrictions: Additional restrictions on AI training (optional)
+
+DATE GUIDELINES:
+Use this exact lookup table — do not compute dates yourself, just match:
 {date_lookup}
 
-3. **MNDA Term** — how long the agreement lasts
-   Ask: "How long should this NDA last? (e.g. 'expires after 2 years', 'continues until either party terminates it')"
-   Set type to "expires" with a year count, or "continues" if open-ended.
-   Shorthands: "1yr", "2yr", "3yrs", "1y", "2y" → expires, that many years. "open", "open-ended", "until terminated", "rolling" → continues.
-
-4. **Term of Confidentiality** — how long shared information stays confidential
-   Ask: "How long should the confidential information remain protected after the NDA ends? (e.g. '3 years', 'forever')"
-   Set type to "years" with a count, or "perpetuity".
-   Shorthands: "1yr", "2yr", "3yrs", "1y", "2y" → years, that many. "forever", "perpetuity", "perp", "always", "indefinitely" → perpetuity.
-
-5. **Governing Law** — the state whose laws govern the agreement
-   Ask: "Which state's law should govern this agreement? (e.g. 'Delaware', 'California', 'New York')"
-
-6. **Jurisdiction** — which courts handle disputes
-   Ask: "Which courts should have jurisdiction? (e.g. 'courts located in New Castle, Delaware', 'courts in San Francisco, California')"
-
-7. **Party 1** — name, title, company, notice address (email or postal), signing date
-   Ask for all sub-fields. Example: "Jane Smith, CEO of Acme Corp, jane@acme.com, signing today"
-
-8. **Party 2** — same sub-fields as Party 1
-
-## Current document state
+CURRENT FIELD STATE:
 {current_fields}
 
-## Instructions
-- Work through the fields in order, but adapt naturally to what the user already told you
-- Ask 1–2 questions per turn maximum — do not dump all questions at once
-- Always include a concrete example in parentheses when asking a question, so the user knows the expected format
-- When the user answers, confirm what you captured then always end your message with a complete, fully-formed question — never trail off with phrases like "Now we need…", "Next up…", or "Let's move on to…" without finishing the sentence
-- Fields considered "empty" and must be asked: purpose (if empty string), governingLaw (if empty), jurisdiction (if empty), party1/party2 sub-fields (if empty strings)
-- Effective Date, MNDA Term and Term of Confidentiality ALWAYS need to be confirmed with the user before telling the user that the form is completed — their default values are just placeholders, not real choices
-- Once all fields are collected, tell the user the document is complete and they can download the PDF
+GUIDELINES:
+- Be conversational and helpful, not robotic
+- Ask about one or two related things at a time
+- When users give information, acknowledge it naturally
+- Suggest reasonable defaults when appropriate (e.g., "today" for effective date, "1 year" for terms)
+- IMPORTANT: Always ask a follow-on question until you have all required fields
+- When you have ALL required information, summarize the details and set isComplete to true
 
-## Clearing fields
-If the user asks to clear fields (e.g. "clear all", "reset", "start over", "clear the date", "clear party 1"):
-- To clear a **specific field**, return that field set to its empty value in "fields" (e.g. `{"governingLaw": ""}` or `{"party1": {"name": "", "title": "", "company": "", "noticeAddress": "", "date": ""}}`) and confirm what was cleared, then ask the user to re-provide it
-- To clear **all fields**, return every field reset to empty values and say you have cleared the form, then ask the first question again
-- Never clear silently — always confirm what was cleared in "message"
-
-Return JSON with:
-- "message": your conversational reply (include examples when asking questions)
-- "fields": only the fields you are confident about from this turn; omit everything else
-
-## Critical rule
-If there are any required fields still empty, your message MUST end with a complete, fully-formed question.
-Never trail off. Never say "Next up..." without finishing the question.
-Never end your message without a question when there is still information to collect.
-"""
+In your response field, write your conversational reply to the user.
+In the other fields, extract any information the user has provided so far.
+Only set isComplete to true when you have gathered all required information."""
+)
 
 
 class PartialPartyInfo(BaseModel):
@@ -77,48 +153,14 @@ class PartialPartyInfo(BaseModel):
     date: Optional[str] = None
 
 
-class PartialMndaTerm(BaseModel):
-    type: Optional[Literal["expires", "continues"]] = None
-    years: Optional[int] = None
-
-
-class PartialTermOfConfidentiality(BaseModel):
-    type: Optional[Literal["years", "perpetuity"]] = None
-    years: Optional[int] = None
-
-
-class PartialNdaFields(BaseModel):
-    purpose: Optional[str] = None
-    effectiveDate: Optional[str] = None
-    mndaTerm: Optional[PartialMndaTerm] = None
-    termOfConfidentiality: Optional[PartialTermOfConfidentiality] = None
-    governingLaw: Optional[str] = None
-    jurisdiction: Optional[str] = None
+class UnifiedAiResponse(BaseModel):
+    message: str
+    documentType: Optional[str] = None
+    fields: Optional[dict[str, str]] = None
     party1: Optional[PartialPartyInfo] = None
     party2: Optional[PartialPartyInfo] = None
-
-
-class AiResponse(BaseModel):
-    message: str
-    fields: PartialNdaFields
-
-
-class SelectionFields(BaseModel):
-    docType: Optional[str] = None
-
-
-class SelectionAiResponse(BaseModel):
-    message: str
-    fields: SelectionFields
-
-
-class PartialGenericFields(BaseModel):
-    fields: Optional[dict[str, Optional[str]]] = None
-
-
-class GenericAiResponse(BaseModel):
-    message: str
-    fields: PartialGenericFields
+    isComplete: Optional[bool] = None
+    suggestedDocument: Optional[str] = None
 
 
 def _date_lookup() -> str:
@@ -144,51 +186,21 @@ def get_ai_response(
     history: list[dict],
     current_fields: dict,
     doc_type: str | None = None,
-) -> Union[AiResponse, SelectionAiResponse, GenericAiResponse]:
-    """Call the LLM with chat history and current fields, dispatching by doc_type."""
-    date_lookup = _date_lookup()
-
-    if doc_type is None:
-        # Phase 1: document selection
-        system = (
-            SELECTION_SYSTEM_PROMPT
-            .replace("{current_fields}", str(current_fields))
-        )
-        response_format = SelectionAiResponse
-    elif doc_type == "nda":
-        # NDA: use typed structured output
-        system = (
-            SYSTEM_PROMPT
-            .replace("{date_lookup}", date_lookup)
-            .replace("{current_fields}", str(current_fields))
-        )
-        response_format = AiResponse
-    else:
-        # Generic doc: use dict-based fields
-        prompt_template = DOCUMENT_PROMPTS.get(doc_type, "")
-        if not prompt_template:
-            # Unsupported doc type — fall back to selection phase
-            system = (
-                SELECTION_SYSTEM_PROMPT
-                .replace("{current_fields}", str(current_fields))
-            )
-            response_format = SelectionAiResponse
-        else:
-            system = (
-                prompt_template
-                .replace("{date_lookup}", date_lookup)
-                .replace("{current_fields}", str(current_fields))
-            )
-            response_format = GenericAiResponse
-
+) -> UnifiedAiResponse:
+    """Call the LLM with chat history and current fields using a single unified prompt."""
+    system = (
+        SYSTEM_PROMPT
+        .replace("{date_lookup}", _date_lookup())
+        .replace("{current_fields}", str(current_fields))
+    )
     messages = [{"role": "system", "content": system}] + history
     response = completion(
         model=MODEL,
         messages=messages,
-        response_format=response_format,
+        response_format=UnifiedAiResponse,
         reasoning_effort="low",
         timeout=30,
         extra_body=EXTRA_BODY,
     )
     raw = response.choices[0].message.content
-    return response_format.model_validate_json(raw)
+    return UnifiedAiResponse.model_validate_json(raw)
