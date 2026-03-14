@@ -7,12 +7,12 @@ export interface PartyInfo {
 }
 
 export interface MndaTerm {
-  type: "expires" | "continues";
+  type: "" | "expires" | "continues";
   years: number;
 }
 
 export interface TermOfConfidentiality {
-  type: "years" | "perpetuity";
+  type: "" | "years" | "perpetuity";
   years: number;
 }
 
@@ -36,8 +36,8 @@ export interface ChatMessage {
 export const defaultFormData: NdaFormData = {
   purpose: "",
   effectiveDate: "",
-  mndaTerm: { type: "expires", years: 0 },
-  termOfConfidentiality: { type: "years", years: 0 },
+  mndaTerm: { type: "", years: 0 },
+  termOfConfidentiality: { type: "", years: 0 },
   governingLaw: "",
   jurisdiction: "",
   party1: { name: "", title: "", company: "", noticeAddress: "", date: "" },

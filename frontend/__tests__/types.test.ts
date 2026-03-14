@@ -35,16 +35,16 @@ describe("defaultFormData", () => {
     expect(defaultFormData.effectiveDate).toBe("");
   });
 
-  it("mndaTerm.type defaults to 'expires'", () => {
-    expect(defaultFormData.mndaTerm.type).toBe("expires");
+  it("mndaTerm.type defaults to '' (no pre-selection)", () => {
+    expect(defaultFormData.mndaTerm.type).toBe("");
   });
 
   it("mndaTerm.years is 0 (no prefilled year count)", () => {
     expect(defaultFormData.mndaTerm.years).toBe(0);
   });
 
-  it("termOfConfidentiality.type defaults to 'years'", () => {
-    expect(defaultFormData.termOfConfidentiality.type).toBe("years");
+  it("termOfConfidentiality.type defaults to '' (no pre-selection)", () => {
+    expect(defaultFormData.termOfConfidentiality.type).toBe("");
   });
 
   it("party1 has all required sub-fields with empty strings", () => {

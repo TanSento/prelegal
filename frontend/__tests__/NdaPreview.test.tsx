@@ -350,4 +350,10 @@ describe("NdaPreview – default data shows no prefilled content", () => {
     render(<NdaPreview data={defaultFormData} />);
     expect(screen.queryByText("0 years")).toBeNull();
   });
+
+  it("shows no checkmarks (✓) in MNDA Term or Term of Confidentiality with default data", () => {
+    render(<NdaPreview data={defaultFormData} />);
+    // With type="" defaults, neither checkbox should be checked
+    expect(screen.queryByText("✓")).toBeNull();
+  });
 });
