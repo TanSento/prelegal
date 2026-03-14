@@ -7,12 +7,12 @@ export interface PartyInfo {
 }
 
 export interface MndaTerm {
-  type: "expires" | "continues";
+  type: "" | "expires" | "continues";
   years: number;
 }
 
 export interface TermOfConfidentiality {
-  type: "years" | "perpetuity";
+  type: "" | "years" | "perpetuity";
   years: number;
 }
 
@@ -34,10 +34,10 @@ export interface ChatMessage {
 }
 
 export const defaultFormData: NdaFormData = {
-  purpose: "Evaluating whether to enter into a business relationship with the other party.",
-  effectiveDate: new Date().toISOString().split("T")[0],
-  mndaTerm: { type: "expires", years: 1 },
-  termOfConfidentiality: { type: "years", years: 1 },
+  purpose: "",
+  effectiveDate: "",
+  mndaTerm: { type: "", years: 0 },
+  termOfConfidentiality: { type: "", years: 0 },
   governingLaw: "",
   jurisdiction: "",
   party1: { name: "", title: "", company: "", noticeAddress: "", date: "" },

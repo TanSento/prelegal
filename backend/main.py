@@ -4,10 +4,11 @@ import os
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from starlette.middleware.base import BaseHTTPMiddleware
 
 load_dotenv()
 
@@ -24,6 +25,19 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+
+
+class NoCacheHtmlMiddleware(BaseHTTPMiddleware):
+    """Prevent browsers from caching HTML pages so chunk references stay fresh after rebuilds."""
+
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        if "text/html" in response.headers.get("content-type", ""):
+            response.headers["cache-control"] = "no-store"
+        return response
+
+
+app.add_middleware(NoCacheHtmlMiddleware)
 
 
 @app.get("/api/health")
@@ -48,10 +62,14 @@ async def chat(req: ChatRequest):
     async def generate():
         try:
             history = [{"role": m.role, "content": m.content} for m in req.messages]
-            ai_resp = await asyncio.to_thread(get_ai_response, history, req.formData)
+            ai_resp = await asyncio.wait_for(
+                asyncio.to_thread(get_ai_response, history, req.formData),
+                timeout=70.0,
+            )
 
-            # Stream the message word by word
-            for word in ai_resp.message.split(" "):
+            # Normalize Unicode spaces (model may return \xa0/\u202f) then stream word by word
+            message = ai_resp.message.replace("\u202f", " ").replace("\xa0", " ")
+            for word in message.split():
                 yield f"event: token\ndata: {json.dumps({'text': word + ' '})}\n\n"
                 await asyncio.sleep(0.02)
 

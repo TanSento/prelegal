@@ -31,20 +31,20 @@ describe("defaultFormData", () => {
     expect(typeof defaultFormData.effectiveDate).toBe("string");
   });
 
-  it("effectiveDate looks like a YYYY-MM-DD date string", () => {
-    expect(defaultFormData.effectiveDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  it("effectiveDate is empty string (no prefilled date)", () => {
+    expect(defaultFormData.effectiveDate).toBe("");
   });
 
-  it("mndaTerm.type defaults to 'expires'", () => {
-    expect(defaultFormData.mndaTerm.type).toBe("expires");
+  it("mndaTerm.type defaults to '' (no pre-selection)", () => {
+    expect(defaultFormData.mndaTerm.type).toBe("");
   });
 
-  it("mndaTerm.years is a positive number", () => {
-    expect(defaultFormData.mndaTerm.years).toBeGreaterThan(0);
+  it("mndaTerm.years is 0 (no prefilled year count)", () => {
+    expect(defaultFormData.mndaTerm.years).toBe(0);
   });
 
-  it("termOfConfidentiality.type defaults to 'years'", () => {
-    expect(defaultFormData.termOfConfidentiality.type).toBe("years");
+  it("termOfConfidentiality.type defaults to '' (no pre-selection)", () => {
+    expect(defaultFormData.termOfConfidentiality.type).toBe("");
   });
 
   it("party1 has all required sub-fields with empty strings", () => {
@@ -73,9 +73,25 @@ describe("defaultFormData", () => {
     expect(defaultFormData.jurisdiction).toBe("");
   });
 
-  it("purpose is a non-empty string", () => {
-    expect(typeof defaultFormData.purpose).toBe("string");
-    expect(defaultFormData.purpose.length).toBeGreaterThan(0);
+  it("purpose is empty string (no prefilled text)", () => {
+    expect(defaultFormData.purpose).toBe("");
+  });
+
+  it("termOfConfidentiality.years is 0 (no prefilled year count)", () => {
+    expect(defaultFormData.termOfConfidentiality.years).toBe(0);
+  });
+
+  // ─── No prefilled fields ────────────────────────────────────────────────────
+  it("no text fields are prefilled with real content", () => {
+    expect(defaultFormData.purpose).toBe("");
+    expect(defaultFormData.effectiveDate).toBe("");
+    expect(defaultFormData.governingLaw).toBe("");
+    expect(defaultFormData.jurisdiction).toBe("");
+  });
+
+  it("no numeric fields are prefilled with a non-zero year count", () => {
+    expect(defaultFormData.mndaTerm.years).toBe(0);
+    expect(defaultFormData.termOfConfidentiality.years).toBe(0);
   });
 });
 

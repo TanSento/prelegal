@@ -244,12 +244,16 @@ export default function NdaPdf({ data }: { data: NdaFormData }) {
   const mndaTermText =
     mndaTerm.type === "expires"
       ? `Expires ${pluralYears(mndaTerm.years)} from Effective Date`
-      : "Continues until terminated in accordance with the terms of the MNDA";
+      : mndaTerm.type === "continues"
+      ? "Continues until terminated in accordance with the terms of the MNDA"
+      : "—";
 
   const tocText =
     termOfConfidentiality.type === "years"
       ? `${pluralYears(termOfConfidentiality.years)} from Effective Date, but in the case of trade secrets until Confidential Information is no longer considered a trade secret under applicable laws`
-      : "In perpetuity";
+      : termOfConfidentiality.type === "perpetuity"
+      ? "In perpetuity"
+      : "—";
 
   const govLaw = val(governingLaw, "[Governing Law]");
   const jur = val(jurisdiction, "[Jurisdiction]");
