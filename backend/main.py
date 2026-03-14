@@ -4,10 +4,11 @@ import os
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from starlette.middleware.base import BaseHTTPMiddleware
 
 load_dotenv()
 
@@ -24,6 +25,19 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+
+
+class NoCacheHtmlMiddleware(BaseHTTPMiddleware):
+    """Prevent browsers from caching HTML pages so chunk references stay fresh after rebuilds."""
+
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        if "text/html" in response.headers.get("content-type", ""):
+            response.headers["cache-control"] = "no-store"
+        return response
+
+
+app.add_middleware(NoCacheHtmlMiddleware)
 
 
 @app.get("/api/health")

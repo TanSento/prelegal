@@ -127,6 +127,26 @@ def test_response_speed_acceptable():
 
 def test_no_reasoning_effort_in_code():
     """Structural: ai.py must not contain reasoning_effort (triggers slow reasoning on gpt-oss-120b)."""
-    with open("/app/ai.py") as f:
+    import pathlib
+    ai_path = pathlib.Path(__file__).parent.parent / "ai.py"
+    with open(ai_path) as f:
         content = f.read()
     assert "reasoning_effort" not in content
+
+
+def test_html_pages_not_cached():
+    """HTML pages must have Cache-Control: no-store so browsers fetch fresh chunk references after Docker rebuilds."""
+    for path in ["/", "/dashboard/"]:
+        req = urllib.request.Request(f"{BASE_URL}{path}")
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            cc = resp.headers.get("cache-control", "")
+            assert "no-store" in cc, f"{path} missing Cache-Control: no-store (got: {repr(cc)})"
+
+
+def test_js_chunks_not_blocked_by_no_store():
+    """JS chunks (content-hashed) must not receive no-store — they should be freely cacheable."""
+    req = urllib.request.Request(f"{BASE_URL}/api/health")
+    with urllib.request.urlopen(req, timeout=5) as resp:
+        cc = resp.headers.get("cache-control", "")
+        # /api/health is JSON, not HTML — must NOT get no-store from our middleware
+        assert "no-store" not in cc, f"/api/health should not have no-store (got: {repr(cc)})"
