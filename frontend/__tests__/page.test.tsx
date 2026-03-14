@@ -1,112 +1,78 @@
 /**
- * Integration tests for app/page.tsx (the Home page)
- *
- * We mock @react-pdf/renderer and the dynamic NdaPdf import so that jsdom
- * does not choke on the PDF renderer.
+ * Tests for app/page.tsx (LoginPage)
  */
 
 import React from "react";
-import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { render, screen, fireEvent } from "@testing-library/react";
 
-// ─── Mocks ────────────────────────────────────────────────────────────────────
-
-// Mock @react-pdf/renderer so that the dynamic import in handleDownload works
-jest.mock("@react-pdf/renderer", () => ({
-  pdf: jest.fn(() => ({
-    toBlob: jest.fn().mockResolvedValue(new Blob(["pdf"], { type: "application/pdf" })),
-  })),
+// Mock next/navigation
+const mockPush = jest.fn();
+const mockReplace = jest.fn();
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({ push: mockPush, replace: mockReplace }),
 }));
 
-// Mock NdaPdf component so the dynamic import resolves without errors
-jest.mock("@/components/NdaPdf", () => ({
-  __esModule: true,
-  default: () => null,
-}));
+import LoginPage from "@/app/page";
 
-// ─── Import page AFTER mocks are in place ─────────────────────────────────────
-import Home from "@/app/page";
+// Mock localStorage
+const localStorageMock = (() => {
+  let store: Record<string, string> = {};
+  return {
+    getItem: jest.fn((key: string) => store[key] ?? null),
+    setItem: jest.fn((key: string, value: string) => { store[key] = value; }),
+    removeItem: jest.fn((key: string) => { delete store[key]; }),
+    clear: jest.fn(() => { store = {}; }),
+  };
+})();
+Object.defineProperty(window, "localStorage", { value: localStorageMock });
 
-// ─── Tests ────────────────────────────────────────────────────────────────────
+beforeEach(() => {
+  jest.clearAllMocks();
+  localStorageMock.clear();
+});
 
-describe("Home page", () => {
-  it("renders the form panel (NdaForm)", () => {
-    render(<Home />);
-    // The form has a heading "Mutual NDA Creator"
-    expect(screen.getByText("Mutual NDA Creator")).toBeInTheDocument();
+describe("LoginPage", () => {
+  it("renders name and email fields", () => {
+    render(<LoginPage />);
+    expect(screen.getByPlaceholderText("Your name")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("you@example.com")).toBeInTheDocument();
   });
 
-  it("renders the preview panel (NdaPreview)", () => {
-    render(<Home />);
-    // The preview has the document title heading
-    expect(
-      screen.getByRole("heading", { name: /mutual non-disclosure agreement/i })
-    ).toBeInTheDocument();
+  it("renders the Sign in button", () => {
+    render(<LoginPage />);
+    expect(screen.getByRole("button", { name: /sign in/i })).toBeInTheDocument();
   });
 
-  it("renders the 'Download as PDF' button", () => {
-    render(<Home />);
-    expect(screen.getByRole("button", { name: /download as pdf/i })).toBeInTheDocument();
+  it("redirects to dashboard if user already logged in", () => {
+    localStorageMock.getItem.mockReturnValueOnce(JSON.stringify({ name: "Test", email: "t@t.com" }));
+    render(<LoginPage />);
+    expect(mockReplace).toHaveBeenCalledWith("/dashboard/");
   });
 
-  it("form changes propagate to the preview – changing purpose updates preview text", async () => {
-    const user = userEvent.setup();
-    render(<Home />);
+  it("stores user in localStorage and navigates on submit", () => {
+    render(<LoginPage />);
+    fireEvent.change(screen.getByPlaceholderText("Your name"), { target: { value: "Alice" } });
+    fireEvent.change(screen.getByPlaceholderText("you@example.com"), { target: { value: "alice@test.com" } });
+    fireEvent.click(screen.getByRole("button", { name: /sign in/i }));
 
-    // Clear the purpose textarea and type a new value
-    // Purpose is the first textarea — Field renders label as sibling, no accessible name binding
-    const purposeTextarea = screen.getAllByRole("textbox")[0];
-    await user.clear(purposeTextarea);
-    await user.type(purposeTextarea, "Integration test purpose");
-
-    // The preview should now show the typed purpose
-    await waitFor(() => {
-      const preview = document.getElementById("nda-preview")!;
-      expect(within(preview).getByText("Integration test purpose")).toBeInTheDocument();
-    });
+    expect(localStorageMock.setItem).toHaveBeenCalledWith(
+      "prelegal_user",
+      JSON.stringify({ name: "Alice", email: "alice@test.com" })
+    );
+    expect(mockPush).toHaveBeenCalledWith("/dashboard/");
   });
 
-  it("form changes propagate to the preview – changing governing law updates preview", async () => {
-    render(<Home />);
-
-    const govLawInput = screen.getByPlaceholderText(/e\.g\. Delaware/i);
-    fireEvent.change(govLawInput, { target: { value: "Texas" } });
-
-    await waitFor(() => {
-      const preview = document.getElementById("nda-preview")!;
-      // Should appear in the preview (cover table row and clause 9)
-      expect(within(preview).getAllByText("Texas").length).toBeGreaterThan(0);
-    });
+  it("does not submit with empty name", () => {
+    render(<LoginPage />);
+    fireEvent.change(screen.getByPlaceholderText("you@example.com"), { target: { value: "alice@test.com" } });
+    fireEvent.click(screen.getByRole("button", { name: /sign in/i }));
+    expect(mockPush).not.toHaveBeenCalled();
   });
 
-  it("download button becomes disabled and shows 'Generating PDF…' while downloading", async () => {
-    // Mock URL.createObjectURL and URL.revokeObjectURL
-    const originalCreateObjectURL = URL.createObjectURL;
-    const originalRevokeObjectURL = URL.revokeObjectURL;
-    URL.createObjectURL = jest.fn(() => "blob:mock-url");
-    URL.revokeObjectURL = jest.fn();
-
-    render(<Home />);
-    const btn = screen.getByRole("button", { name: /download as pdf/i });
-    fireEvent.click(btn);
-
-    // Immediately after click, button should be disabled / show generating text
-    // (state is set synchronously before await)
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: /generating pdf/i })).toBeDisabled();
-    });
-
-    // After download completes, button returns to normal and URL APIs were called
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: /download as pdf/i })).not.toBeDisabled();
-    });
-    expect(URL.createObjectURL).toHaveBeenCalled();
-    await waitFor(() => {
-      expect(URL.revokeObjectURL).toHaveBeenCalled();
-    });
-
-    // Clean up
-    URL.createObjectURL = originalCreateObjectURL;
-    URL.revokeObjectURL = originalRevokeObjectURL;
+  it("does not submit with empty email", () => {
+    render(<LoginPage />);
+    fireEvent.change(screen.getByPlaceholderText("Your name"), { target: { value: "Alice" } });
+    fireEvent.click(screen.getByRole("button", { name: /sign in/i }));
+    expect(mockPush).not.toHaveBeenCalled();
   });
 });

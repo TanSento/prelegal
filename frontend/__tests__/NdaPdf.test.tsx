@@ -89,15 +89,16 @@ function uncheckedBoxes(container: HTMLElement) {
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe("NdaPdf – MNDA Term checkboxes", () => {
-  it("marks 'expires' checkbox as checked by default (mndaTerm.type = 'expires')", () => {
+  it("marks 'expires' checkbox as checked when mndaTerm.type = 'expires'", () => {
     const data: NdaFormData = {
       ...defaultFormData,
       mndaTerm: { type: "expires", years: 1 },
+      termOfConfidentiality: { type: "years", years: 1 },
     };
     const { container } = render(<NdaPdf data={data} />);
 
     // There are 4 checkboxes total (2 MNDA Term + 2 Term of Confidentiality).
-    // With default data both "expires" and "years" are checked → 2 checked boxes.
+    // "expires" + "years" = 2 checked boxes.
     const checked = checkedBoxes(container);
     expect(checked.length).toBe(2);
   });
@@ -106,10 +107,11 @@ describe("NdaPdf – MNDA Term checkboxes", () => {
     const data: NdaFormData = {
       ...defaultFormData,
       mndaTerm: { type: "continues", years: 1 },
+      termOfConfidentiality: { type: "years", years: 1 },
     };
     const { container } = render(<NdaPdf data={data} />);
 
-    // "continues" checked + "years" checked = 2 checked, 2 unchecked
+    // "continues" + "years" = 2 checked, 2 unchecked
     const checked = checkedBoxes(container);
     const unchecked = uncheckedBoxes(container);
     expect(checked.length).toBe(2);
@@ -132,9 +134,10 @@ describe("NdaPdf – MNDA Term checkboxes", () => {
 });
 
 describe("NdaPdf – Term of Confidentiality checkboxes", () => {
-  it("marks 'years' checkbox as checked by default (termOfConfidentiality.type = 'years')", () => {
+  it("marks 'years' checkbox as checked when termOfConfidentiality.type = 'years'", () => {
     const data: NdaFormData = {
       ...defaultFormData,
+      mndaTerm: { type: "expires", years: 1 },
       termOfConfidentiality: { type: "years", years: 3 },
     };
     const { container } = render(<NdaPdf data={data} />);
@@ -145,6 +148,7 @@ describe("NdaPdf – Term of Confidentiality checkboxes", () => {
   it("marks 'perpetuity' checkbox as checked when termOfConfidentiality.type = 'perpetuity'", () => {
     const data: NdaFormData = {
       ...defaultFormData,
+      mndaTerm: { type: "expires", years: 1 },
       termOfConfidentiality: { type: "perpetuity", years: 1 },
     };
     const { container } = render(<NdaPdf data={data} />);
