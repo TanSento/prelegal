@@ -9,13 +9,7 @@ import { defaultFormData, NdaFormData } from "@/lib/types";
 export default function Dashboard() {
   const router = useRouter();
   const [user, setUser] = useState<{ name: string; email: string } | null>(null);
-  const [formData, setFormData] = useState<NdaFormData>(() => {
-    try {
-      const saved = sessionStorage.getItem("prelegal_form_nda");
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return { ...defaultFormData };
-  });
+  const [formData, setFormData] = useState<NdaFormData>({ ...defaultFormData });
   const [downloading, setDownloading] = useState(false);
   const [activeTab, setActiveTab] = useState<"chat" | "preview">("chat");
 
@@ -27,10 +21,6 @@ export default function Dashboard() {
     }
     setUser(JSON.parse(stored));
   }, [router]);
-
-  useEffect(() => {
-    sessionStorage.setItem("prelegal_form_nda", JSON.stringify(formData));
-  }, [formData]);
 
   const handleLogout = () => {
     localStorage.removeItem("prelegal_user");
