@@ -48,7 +48,10 @@ async def chat(req: ChatRequest):
     async def generate():
         try:
             history = [{"role": m.role, "content": m.content} for m in req.messages]
-            ai_resp = await asyncio.to_thread(get_ai_response, history, req.formData)
+            ai_resp = await asyncio.wait_for(
+                asyncio.to_thread(get_ai_response, history, req.formData),
+                timeout=70.0,
+            )
 
             # Normalize Unicode spaces (model may return \xa0/\u202f) then stream word by word
             message = ai_resp.message.replace("\u202f", " ").replace("\xa0", " ")
