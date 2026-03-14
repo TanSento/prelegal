@@ -14,7 +14,7 @@ export default function Dashboard() {
       const saved = sessionStorage.getItem("prelegal_form_nda");
       if (saved) return JSON.parse(saved);
     } catch {}
-    return { ...defaultFormData, effectiveDate: new Date().toISOString().split("T")[0] };
+    return { ...defaultFormData };
   });
   const [downloading, setDownloading] = useState(false);
   const [activeTab, setActiveTab] = useState<"chat" | "preview">("chat");

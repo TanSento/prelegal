@@ -50,8 +50,9 @@ async def chat(req: ChatRequest):
             history = [{"role": m.role, "content": m.content} for m in req.messages]
             ai_resp = await asyncio.to_thread(get_ai_response, history, req.formData)
 
-            # Stream the message word by word
-            for word in ai_resp.message.split(" "):
+            # Normalize Unicode spaces (model may return \xa0/\u202f) then stream word by word
+            message = ai_resp.message.replace("\u202f", " ").replace("\xa0", " ")
+            for word in message.split():
                 yield f"event: token\ndata: {json.dumps({'text': word + ' '})}\n\n"
                 await asyncio.sleep(0.02)
 

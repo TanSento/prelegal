@@ -321,3 +321,33 @@ describe("NdaPreview – footer", () => {
     expect(screen.getAllByText(/Common Paper/).length).toBeGreaterThan(0);
   });
 });
+
+// ─── No prefilled fields (default data shows placeholders) ───────────────────
+
+describe("NdaPreview – default data shows no prefilled content", () => {
+  it("shows 'Enter purpose…' placeholder, not real purpose text", () => {
+    render(<NdaPreview data={defaultFormData} />);
+    expect(screen.getByText("Enter purpose…")).toBeInTheDocument();
+  });
+
+  it("shows 'Select a date' placeholder, not a real date", () => {
+    render(<NdaPreview data={defaultFormData} />);
+    expect(screen.getByText("Select a date")).toBeInTheDocument();
+  });
+
+  it("does not render any year count in the MNDA Term row when years is 0", () => {
+    const { container } = render(<NdaPreview data={defaultFormData} />);
+    // pluralYears(0) = "0 years" must NOT appear — the preview omits it when years===0
+    expect(screen.queryByText("0 years")).toBeNull();
+    // And no bold year span should be inside the expires/years lines
+    const boldSpans = Array.from(container.querySelectorAll(".font-medium")).filter(
+      (el) => /^\d+ years?$/.test(el.textContent?.trim() ?? "")
+    );
+    expect(boldSpans).toHaveLength(0);
+  });
+
+  it("does not render any year count in the Term of Confidentiality row when years is 0", () => {
+    render(<NdaPreview data={defaultFormData} />);
+    expect(screen.queryByText("0 years")).toBeNull();
+  });
+});
