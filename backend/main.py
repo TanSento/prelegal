@@ -2,6 +2,7 @@ import asyncio
 import json
 import os
 from contextlib import asynccontextmanager
+from typing import Literal
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
@@ -46,7 +47,7 @@ async def health():
 
 
 class ChatMessage(BaseModel):
-    role: str
+    role: Literal["user", "assistant"]
     content: str
 
 
