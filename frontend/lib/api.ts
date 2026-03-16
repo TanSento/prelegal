@@ -1,6 +1,102 @@
 import { ChatMessage } from "./types";
 import { DocFormData } from "./doc-schema";
 
+function authHeaders(): Record<string, string> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("prelegal_token") : null;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+// --- Auth ---
+
+export async function signup(name: string, email: string, password: string) {
+  const resp = await fetch("/api/auth/signup", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, email, password }),
+  });
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({ detail: "Signup failed" }));
+    throw new Error(err.detail || `Error ${resp.status}`);
+  }
+  return resp.json() as Promise<{ token: string; user: { id: number; name: string; email: string } }>;
+}
+
+export async function signin(email: string, password: string) {
+  const resp = await fetch("/api/auth/signin", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({ detail: "Invalid credentials" }));
+    throw new Error(err.detail || `Error ${resp.status}`);
+  }
+  return resp.json() as Promise<{ token: string; user: { id: number; name: string; email: string } }>;
+}
+
+export async function signout() {
+  await fetch("/api/auth/signout", {
+    method: "POST",
+    headers: { ...authHeaders() },
+  });
+}
+
+// --- Documents ---
+
+export interface SavedDoc {
+  id: number;
+  doc_type: string;
+  title: string;
+  updated_at: string;
+}
+
+export interface FullDoc extends SavedDoc {
+  form_data: Record<string, unknown>;
+  chat_history: ChatMessage[];
+  created_at: string;
+}
+
+export async function listDocuments(): Promise<SavedDoc[]> {
+  const resp = await fetch("/api/documents", { headers: authHeaders() });
+  if (!resp.ok) return [];
+  return resp.json();
+}
+
+export async function getDocument(id: number): Promise<FullDoc> {
+  const resp = await fetch(`/api/documents/${id}`, { headers: authHeaders() });
+  if (!resp.ok) throw new Error("Failed to load document");
+  return resp.json();
+}
+
+export async function saveDocument(
+  docType: string,
+  title: string,
+  formData: DocFormData,
+  chatHistory: ChatMessage[],
+): Promise<{ id: number }> {
+  const resp = await fetch("/api/documents", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ doc_type: docType, title, form_data: formData, chat_history: chatHistory }),
+  });
+  if (!resp.ok) throw new Error("Failed to save document");
+  return resp.json();
+}
+
+export async function updateDocument(
+  id: number,
+  updates: { title?: string; form_data?: DocFormData; chat_history?: ChatMessage[] },
+): Promise<void> {
+  const resp = await fetch(`/api/documents/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(updates),
+  });
+  if (!resp.ok) throw new Error("Failed to update document");
+}
+
+// --- Chat streaming ---
+
 interface StreamCallbacks {
   onToken: (text: string) => void;
   onFields: (fields: Record<string, unknown>) => void;
@@ -17,7 +113,7 @@ export async function streamChat(
 ): Promise<void> {
   const resp = await fetch("/api/chat", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ messages, formData, docType }),
     signal,
   });

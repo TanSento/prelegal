@@ -200,7 +200,11 @@ export default function DocPreview({ schema, data }: DocPreviewProps) {
         ))}
       </div>
 
-      <p className="mt-8 text-xs text-slate-500 font-sans border-t border-slate-200 pt-4">
+      <div className="mt-8 mb-4 p-3 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700 font-sans leading-snug">
+        This document is generated for informational purposes only and does not constitute legal advice. Consult a qualified attorney before executing any legal agreement.
+      </div>
+
+      <p className="text-xs text-slate-500 font-sans border-t border-slate-200 pt-4">
         {schema.footerNote}
       </p>
     </div>

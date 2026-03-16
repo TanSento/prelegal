@@ -37,6 +37,7 @@ const s = StyleSheet.create({
   bold: { fontFamily: "Times-Bold" },
   footer: { fontSize: 8, color: "#94a3b8", borderTopWidth: 1, borderColor: "#e2e8f0", paddingTop: 6, marginTop: 16 },
   signingNote: { fontSize: 9, fontFamily: "Times-Roman", color: "#475569", marginBottom: 6 },
+  disclaimer: { backgroundColor: "#fffbeb", borderWidth: 1, borderColor: "#fde68a", borderRadius: 3, padding: 8, marginTop: 16, marginBottom: 8, fontSize: 8, color: "#92400e", lineHeight: 1.5 },
 });
 
 function PdfCheckbox({ checked }: { checked: boolean }) {
@@ -155,6 +156,11 @@ export default function DocPdf({ schema, data, sections }: DocPdfProps) {
           </>
         )}
 
+        {sections.length === 0 && (
+          <View style={s.disclaimer}>
+            <Text>This document is generated for informational purposes only and does not constitute legal advice. Consult a qualified attorney before executing any legal agreement.</Text>
+          </View>
+        )}
         <Text style={s.footer}>{schema.footerNote}</Text>
       </Page>
 
@@ -167,6 +173,9 @@ export default function DocPdf({ schema, data, sections }: DocPdfProps) {
               {stripHtml(section.content.replace(/\n/g, " "))}
             </Text>
           ))}
+          <View style={s.disclaimer}>
+            <Text>This document is generated for informational purposes only and does not constitute legal advice. Consult a qualified attorney before executing any legal agreement.</Text>
+          </View>
           <Text style={s.footer}>{schema.footerNote}</Text>
         </Page>
       )}

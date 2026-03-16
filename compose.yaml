@@ -3,10 +3,5 @@ services:
     build: .
     ports:
       - "8000:8000"
-    volumes:
-      - prelegal-data:/data
     env_file:
       - .env
-
-volumes:
-  prelegal-data:
