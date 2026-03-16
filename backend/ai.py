@@ -16,8 +16,9 @@ SYSTEM_PROMPT = """You are a legal document assistant helping a user fill in a M
 
 2. **Effective Date** — agreement start date
    Ask: "What is the effective date? (e.g. 'today', 'March 15 2026', 'next Monday' — I'll convert it to the right format)"
-   Use this exact lookup table — do not compute, just match:
+   For shortcuts like "today", "tomorrow", "Mon", "next Mon", use this lookup table:
 {date_lookup}
+   For full dates (e.g. "March 15 2026", "2026-03-15", "15/03/2026"), convert to YYYY-MM-DD format directly. Accept any reasonable date format the user provides.
 
 3. **MNDA Term** — how long the agreement lasts
    Ask: "How long should this NDA last? (e.g. 'expires after 2 years', 'continues until either party terminates it')"
