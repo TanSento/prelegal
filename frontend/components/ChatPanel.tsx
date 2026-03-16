@@ -12,9 +12,12 @@ interface ChatPanelProps {
   onChange: (data: DocFormData) => void;
   onDownload: () => void;
   downloading: boolean;
+  onSave?: (messages: ChatMessage[]) => void;
+  saving?: boolean;
+  initialMessages?: ChatMessage[];
 }
 
-export default function ChatPanel({ schema, data, onChange, onDownload, downloading }: ChatPanelProps) {
+export default function ChatPanel({ schema, data, onChange, onDownload, downloading, onSave, saving, initialMessages }: ChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
@@ -24,21 +27,29 @@ export default function ChatPanel({ schema, data, onChange, onDownload, download
   const dataRef = useRef(data);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const messagesRef = useRef<ChatMessage[]>([]);
 
   useEffect(() => {
     dataRef.current = data;
   }, [data]);
 
   useEffect(() => {
+    if (initialMessages && initialMessages.length > 0) {
+      setMessages(initialMessages);
+      messagesRef.current = initialMessages;
+      return;
+    }
     const saved = loadMessages(schema.id);
     if (saved.length === 0) {
       const greeting: ChatMessage = { id: crypto.randomUUID(), role: "assistant", content: schema.greeting };
       setMessages([greeting]);
       saveMessages(schema.id, [greeting]);
+      messagesRef.current = [greeting];
     } else {
       setMessages(saved);
+      messagesRef.current = saved;
     }
-  }, [schema.id, schema.greeting]);
+  }, [schema.id, schema.greeting, initialMessages]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -51,13 +62,18 @@ export default function ChatPanel({ schema, data, onChange, onDownload, download
     }
   }, [streaming]);
 
+  const updateMessages = (msgs: ChatMessage[]) => {
+    setMessages(msgs);
+    messagesRef.current = msgs;
+  };
+
   const send = async () => {
     const text = input.trim();
     if (!text || streaming) return;
 
     const userMsg: ChatMessage = { id: crypto.randomUUID(), role: "user", content: text };
     const nextMessages = [...messages, userMsg];
-    setMessages(nextMessages);
+    updateMessages(nextMessages);
     saveMessages(schema.id, nextMessages);
     setInput("");
     setStreaming(true);
@@ -90,7 +106,7 @@ export default function ChatPanel({ schema, data, onChange, onDownload, download
               content: accumulated.trim(),
             };
             const finalMessages = [...nextMessages, assistantMsg];
-            setMessages(finalMessages);
+            updateMessages(finalMessages);
             saveMessages(schema.id, finalMessages);
             setStreamingText("");
             setStreaming(false);
@@ -196,13 +212,24 @@ export default function ChatPanel({ schema, data, onChange, onDownload, download
           </button>
         </div>
 
-        <button
-          onClick={onDownload}
-          disabled={downloading}
-          className="w-full rounded-lg bg-[#753991] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#632d7a] active:bg-[#512469] transition focus:outline-none focus:ring-2 focus:ring-[#753991] focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed"
-        >
-          {downloading ? "Generating PDF..." : "Download as PDF"}
-        </button>
+        <div className="flex gap-2">
+          {onSave && (
+            <button
+              onClick={() => onSave(messagesRef.current)}
+              disabled={saving || streaming}
+              className="flex-1 rounded-lg bg-[#209dd7] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#1a8abf] active:bg-[#177aaa] transition focus:outline-none focus:ring-2 focus:ring-[#209dd7] focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {saving ? "Saving..." : "Save Document"}
+            </button>
+          )}
+          <button
+            onClick={onDownload}
+            disabled={downloading}
+            className="flex-1 rounded-lg bg-[#753991] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#632d7a] active:bg-[#512469] transition focus:outline-none focus:ring-2 focus:ring-[#753991] focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {downloading ? "Generating PDF..." : "Download as PDF"}
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -21,7 +21,7 @@ COPY backend/ ./
 COPY --from=frontend-builder /frontend/out ./static
 
 ENV STATIC_DIR=/app/static
-ENV DB_PATH=/data/prelegal.db
+ENV DB_PATH=/tmp/prelegal.db
 
 EXPOSE 8000
 

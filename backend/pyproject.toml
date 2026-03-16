@@ -6,9 +6,26 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "aiosqlite>=0.22.1",
+    "bcrypt>=4.3.0",
     "fastapi>=0.135.1",
     "litellm>=1.82.1",
     "pydantic>=2.12.5",
     "python-dotenv>=1.2.2",
     "uvicorn>=0.41.0",
 ]
+
+[project.optional-dependencies]
+dev = [
+    "httpx>=0.28.0",
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+pythonpath = ["."]
