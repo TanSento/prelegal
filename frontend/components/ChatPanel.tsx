@@ -5,7 +5,7 @@ import { ChatMessage, NdaFormData } from "@/lib/types";
 import { loadMessages, saveMessages } from "@/lib/chat-storage";
 import { mergeFields, streamChat } from "@/lib/api";
 
-const GREETING = "Hi! I'm your NDA assistant. I'll help you fill in the Mutual Non-Disclosure Agreement through conversation. Let's start — what's the purpose of sharing confidential information between the two parties?";
+const GREETING = "Hi! I'm your NDA assistant. I'll help you fill in the Mutual Non-Disclosure Agreement through conversation. Let's start — what's the purpose of sharing confidential information between the two parties? (e.g. 'Evaluating a potential acquisition', 'Exploring a technology partnership', 'Discussing joint-development of a new product')";
 
 interface ChatPanelProps {
   data: NdaFormData;
