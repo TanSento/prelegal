@@ -134,4 +134,8 @@ tmp/
 temp/
 *.pdf
 
+# Frontend symlinks/copies for Docker build compatibility
+frontend/templates
+frontend/catalog.json
+
 

@@ -4,6 +4,8 @@ WORKDIR /frontend
 COPY frontend/package*.json ./
 RUN npm ci
 COPY frontend/ ./
+COPY catalog.json ./catalog.json
+COPY templates/ ./templates/
 RUN npm run build
 
 # Stage 2: Run backend

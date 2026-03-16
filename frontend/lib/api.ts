@@ -1,22 +1,24 @@
-import { ChatMessage, NdaFormData } from "./types";
+import { ChatMessage } from "./types";
+import { DocFormData } from "./doc-schema";
 
 interface StreamCallbacks {
   onToken: (text: string) => void;
-  onFields: (fields: Partial<NdaFormData>) => void;
+  onFields: (fields: Record<string, unknown>) => void;
   onDone: () => void;
   onError: (message: string) => void;
 }
 
 export async function streamChat(
   messages: ChatMessage[],
-  formData: NdaFormData,
+  formData: DocFormData,
+  docType: string,
   callbacks: StreamCallbacks,
   signal?: AbortSignal
 ): Promise<void> {
   const resp = await fetch("/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messages, formData }),
+    body: JSON.stringify({ messages, formData, docType }),
     signal,
   });
 
@@ -62,16 +64,31 @@ export async function streamChat(
     if (err?.name !== "AbortError") {
       callbacks.onError(err?.message ?? "Stream read failed");
     }
-    // AbortError: silently return — caller handles cleanup
   }
 }
 
-/** Deep-merge partial NDA fields into current form data. */
-export function mergeFields(current: NdaFormData, incoming: Partial<NdaFormData>): NdaFormData {
+/** Deep-merge partial fields into current form data. */
+export function mergeFields(current: DocFormData, incoming: Record<string, unknown>): DocFormData {
   const result = { ...current };
-  for (const key of Object.keys(incoming) as (keyof NdaFormData)[]) {
+
+  for (const key of Object.keys(incoming)) {
     const val = incoming[key];
     if (val === null || val === undefined) continue;
+
+    // Handle party1/party2 -> parties array mapping
+    if (key === "party1" && typeof val === "object") {
+      const parties = [...(result.parties as any[] || [])];
+      parties[0] = { ...(parties[0] || {}), ...val };
+      result.parties = parties;
+      continue;
+    }
+    if (key === "party2" && typeof val === "object") {
+      const parties = [...(result.parties as any[] || [])];
+      parties[1] = { ...(parties[1] || {}), ...val };
+      result.parties = parties;
+      continue;
+    }
+
     if (typeof val === "object" && !Array.isArray(val)) {
       (result as any)[key] = { ...(current as any)[key], ...val };
     } else {
