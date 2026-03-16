@@ -8,7 +8,7 @@ The available documents are covered in the catalog.json file in the project root
 
 @catalog.json
 
-The current implementation supports all 11 CommonPaper legal document types with AI-powered chat, live preview, and PDF generation. It has a fake login screen, a document picker dashboard, a FastAPI backend serving the static frontend, and a SQLite database. Real authentication and document persistence are not yet implemented.
+The current implementation supports all 11 CommonPaper legal document types with AI-powered chat, live preview, and PDF generation. It has real authentication (bcrypt + session tokens), document persistence (save/resume drafts), a document picker dashboard, a FastAPI backend serving the static frontend, and a SQLite database that resets on container restart (demo behavior).
 
 ## Development process
 
@@ -147,9 +147,30 @@ Expanded from NDA-only to all 11 CommonPaper legal document types with generic r
 - Modified `frontend/next.config.ts` — webpack `asset/source` rule for `.md` imports
 - Modified `frontend/package.json` — `next build --webpack`, added `raw-loader`
 
-## Not Yet Built
+### PL-12: Auth, Document Persistence & UI Polish (Done, PR #14)
 
-- **PL-12**: Real authentication, document persistence, UI polish
+Added real authentication, document saving/resuming, UI polish, and legal disclaimer. DB resets on every container restart (demo behavior).
+
+**Backend:**
+- Modified `backend/database.py` — expanded schema: `users` (with `password_hash`), `sessions` (token-based), `documents` (with `form_data` JSON, `chat_history` JSON); added `get_db()` async context manager; DB defaults to `/tmp/prelegal.db`
+- Modified `backend/main.py` — auth endpoints (`POST /api/auth/signup`, `/api/auth/signin`, `/api/auth/signout`) with bcrypt password hashing and Bearer token sessions; `get_current_user` dependency for protected routes; document CRUD (`POST/GET/GET/:id/PUT/:id /api/documents`) with user ownership checks
+- Modified `backend/pyproject.toml` — added `bcrypt>=4.3.0`, dev deps (`httpx`, `pytest`, `pytest-asyncio`)
+- Created `backend/tests/test_auth.py` — 6 tests (signup, signin, wrong password 401, duplicate email 409, protected endpoint 401, signout invalidates token)
+- Created `backend/tests/test_documents.py` — 5 tests (create, list only own, get by id, update, cannot access other user's doc)
+
+**Frontend:**
+- Modified `frontend/lib/api.ts` — `authHeaders()` helper; `signup()`, `signin()`, `signout()` API functions; `listDocuments()`, `getDocument()`, `saveDocument()`, `updateDocument()` API functions; auth headers on `streamChat()`
+- Modified `frontend/app/page.tsx` — sign-up / sign-in toggle with password fields, real backend auth, inline error messages, token-based login
+- Modified `frontend/app/dashboard/page.tsx` — "My Documents" grid above DocPicker, save/load flow with `activeDocDbId` state, header avatar (blue circle with user initial), token-based auth check, `signout()` API call on logout
+- Modified `frontend/components/ChatPanel.tsx` — `initialMessages` prop for restoring saved chats, `onSave`/`saving` props, Save Document button
+- Modified `frontend/components/DocPicker.tsx` — hover lift animation (`hover:-translate-y-0.5`, `hover:shadow-lg`), amber legal disclaimer note
+- Modified `frontend/components/DocPreview.tsx` — amber disclaimer box above footer
+- Modified `frontend/components/DocPdf.tsx` — disclaimer text on last page of PDF
+- Modified `frontend/__tests__/page.test.tsx` — 8 tests for sign-in/sign-up toggle, password fields, API calls, error handling
+
+**Infrastructure:**
+- Modified `Dockerfile` — changed `DB_PATH` to `/tmp/prelegal.db`
+- Modified `compose.yaml` — removed `volumes:` section (DB resets on restart)
 
 ## Color Scheme
 - Accent Yellow: `#ecad0a`
