@@ -1,20 +1,22 @@
 import { ChatMessage } from "./types";
 
-const KEY = "prelegal_chat_nda";
+function storageKey(docId: string): string {
+  return `prelegal_chat_${docId}`;
+}
 
-export function loadMessages(): ChatMessage[] {
+export function loadMessages(docId: string): ChatMessage[] {
   try {
-    const raw = sessionStorage.getItem(KEY);
+    const raw = sessionStorage.getItem(storageKey(docId));
     return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
   }
 }
 
-export function saveMessages(messages: ChatMessage[]): void {
-  sessionStorage.setItem(KEY, JSON.stringify(messages));
+export function saveMessages(docId: string, messages: ChatMessage[]): void {
+  sessionStorage.setItem(storageKey(docId), JSON.stringify(messages));
 }
 
-export function clearMessages(): void {
-  sessionStorage.removeItem(KEY);
+export function clearMessages(docId: string): void {
+  sessionStorage.removeItem(storageKey(docId));
 }

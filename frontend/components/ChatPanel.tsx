@@ -1,20 +1,20 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChatMessage, NdaFormData } from "@/lib/types";
+import { ChatMessage } from "@/lib/types";
+import { DocSchema, DocFormData } from "@/lib/doc-schema";
 import { loadMessages, saveMessages } from "@/lib/chat-storage";
 import { mergeFields, streamChat } from "@/lib/api";
 
-const GREETING = "Hi! I'm your NDA assistant. I'll help you fill in the Mutual Non-Disclosure Agreement through conversation. Let's start — what's the purpose of sharing confidential information between the two parties? (e.g. 'Evaluating a potential acquisition', 'Exploring a technology partnership', 'Discussing joint-development of a new product')";
-
 interface ChatPanelProps {
-  data: NdaFormData;
-  onChange: (data: NdaFormData) => void;
+  schema: DocSchema;
+  data: DocFormData;
+  onChange: (data: DocFormData) => void;
   onDownload: () => void;
   downloading: boolean;
 }
 
-export default function ChatPanel({ data, onChange, onDownload, downloading }: ChatPanelProps) {
+export default function ChatPanel({ schema, data, onChange, onDownload, downloading }: ChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
@@ -23,25 +23,33 @@ export default function ChatPanel({ data, onChange, onDownload, downloading }: C
   const abortRef = useRef<AbortController | null>(null);
   const dataRef = useRef(data);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     dataRef.current = data;
   }, [data]);
 
   useEffect(() => {
-    const saved = loadMessages();
+    const saved = loadMessages(schema.id);
     if (saved.length === 0) {
-      const greeting: ChatMessage = { id: crypto.randomUUID(), role: "assistant", content: GREETING };
+      const greeting: ChatMessage = { id: crypto.randomUUID(), role: "assistant", content: schema.greeting };
       setMessages([greeting]);
-      saveMessages([greeting]);
+      saveMessages(schema.id, [greeting]);
     } else {
       setMessages(saved);
     }
-  }, []);
+  }, [schema.id, schema.greeting]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streamingText]);
+
+  // Auto-focus input after streaming completes
+  useEffect(() => {
+    if (!streaming) {
+      inputRef.current?.focus();
+    }
+  }, [streaming]);
 
   const send = async () => {
     const text = input.trim();
@@ -50,7 +58,7 @@ export default function ChatPanel({ data, onChange, onDownload, downloading }: C
     const userMsg: ChatMessage = { id: crypto.randomUUID(), role: "user", content: text };
     const nextMessages = [...messages, userMsg];
     setMessages(nextMessages);
-    saveMessages(nextMessages);
+    saveMessages(schema.id, nextMessages);
     setInput("");
     setStreaming(true);
     setStreamingText("");
@@ -60,13 +68,13 @@ export default function ChatPanel({ data, onChange, onDownload, downloading }: C
     abortRef.current = controller;
 
     let accumulated = "";
-    // Send last 10 messages as history
     const history = nextMessages.slice(-10);
 
     try {
       await streamChat(
         history,
         data,
+        schema.id,
         {
           onToken: (token) => {
             accumulated += token;
@@ -83,7 +91,7 @@ export default function ChatPanel({ data, onChange, onDownload, downloading }: C
             };
             const finalMessages = [...nextMessages, assistantMsg];
             setMessages(finalMessages);
-            saveMessages(finalMessages);
+            saveMessages(schema.id, finalMessages);
             setStreamingText("");
             setStreaming(false);
           },
@@ -112,8 +120,8 @@ export default function ChatPanel({ data, onChange, onDownload, downloading }: C
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="px-6 py-4 border-b border-slate-200 bg-white sticky top-0 z-10">
-        <h2 className="text-lg font-semibold text-slate-800">Mutual NDA Assistant</h2>
-        <p className="text-xs text-slate-500 mt-0.5">Chat to fill in your document — the preview updates live</p>
+        <h2 className="text-lg font-semibold text-slate-800">{schema.title} Assistant</h2>
+        <p className="text-xs text-slate-500 mt-0.5">Chat to fill in your document -- the preview updates live</p>
       </div>
 
       {/* Messages */}
@@ -170,9 +178,10 @@ export default function ChatPanel({ data, onChange, onDownload, downloading }: C
       <div className="px-4 pt-3 pb-3 border-t border-slate-200 bg-white">
         <div className="flex gap-2 mb-3">
           <textarea
+            ref={inputRef}
             rows={2}
             className="flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#209dd7] focus:border-transparent resize-none transition"
-            placeholder="Type a message… (Enter to send)"
+            placeholder="Type a message... (Enter to send)"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -192,7 +201,7 @@ export default function ChatPanel({ data, onChange, onDownload, downloading }: C
           disabled={downloading}
           className="w-full rounded-lg bg-[#753991] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#632d7a] active:bg-[#512469] transition focus:outline-none focus:ring-2 focus:ring-[#753991] focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          {downloading ? "Generating PDF…" : "Download as PDF"}
+          {downloading ? "Generating PDF..." : "Download as PDF"}
         </button>
       </div>
     </div>

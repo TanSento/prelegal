@@ -54,6 +54,7 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     messages: list[ChatMessage]
     formData: dict
+    docType: str = "mutual-nda"
 
 
 @app.post("/api/chat")
@@ -64,7 +65,7 @@ async def chat(req: ChatRequest):
         try:
             history = [{"role": m.role, "content": m.content} for m in req.messages]
             ai_resp = await asyncio.wait_for(
-                asyncio.to_thread(get_ai_response, history, req.formData),
+                asyncio.to_thread(get_ai_response, history, req.formData, req.docType),
                 timeout=70.0,
             )
 
