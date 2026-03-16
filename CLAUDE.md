@@ -8,7 +8,7 @@ The available documents are covered in the catalog.json file in the project root
 
 @catalog.json
 
-The current implementation has the V1 foundation in place plus an AI chat interface for the Mutual NDA: a fake login screen, an AI-powered NDA creator on the dashboard, a FastAPI backend serving the static frontend, and a SQLite database. Multi-document support, real authentication, and document persistence are not yet implemented.
+The current implementation supports all 11 CommonPaper legal document types with AI-powered chat, live preview, and PDF generation. It has a fake login screen, a document picker dashboard, a FastAPI backend serving the static frontend, and a SQLite database. Real authentication and document persistence are not yet implemented.
 
 ## Development process
 
@@ -118,9 +118,37 @@ Post PL-10 review and fixes.
 - Modified `frontend/components/ChatPanel.tsx` — added example purposes to greeting message
 - Created `Review.md` — documented review findings and stress test results
 
+### PL-11: Multi-Document Support (Done, PR #13)
+
+Expanded from NDA-only to all 11 CommonPaper legal document types with generic rendering, per-document AI chat, and PDF generation.
+
+**Backend:**
+- Created `backend/doc_configs/` — package with 11 per-document configs (system prompts + Pydantic structured output models) and shared `PartialPartyInfo` base model
+- Refactored `backend/ai.py` — dynamic doc config loading via `importlib` based on `docType` parameter; retry loop (up to 3 attempts) handles both transient API errors and garbled responses
+- Modified `backend/main.py` — added `docType` field to `ChatRequest`
+
+**Frontend:**
+- Created `frontend/lib/doc-schema.ts` — core types: `DocSchema`, `FieldDef`, `PartyDef`, `DocFormData`
+- Created `frontend/lib/schemas/` — 11 document schema definitions (mutual-nda, csa, sla, dpa, psa, baa, pilot, partnership, software-license, design-partner, ai-addendum)
+- Created `frontend/lib/doc-registry.ts` — central registry mapping doc IDs to schemas
+- Created `frontend/components/DocPreview.tsx` — generic HTML preview for any document type
+- Created `frontend/components/DocPdf.tsx` — generic PDF generation for any document type
+- Created `frontend/components/DocPicker.tsx` — document selection grid on dashboard
+- Created `frontend/lib/parse-terms.ts` — markdown template parser (extracts numbered sections)
+- Created `frontend/lib/terms-loader.ts` — lazy template loader with caching via dynamic imports
+- Created `frontend/lib/doc-utils.ts` — shared `formatDate`/`pluralYears` utilities
+- Modified `frontend/components/ChatPanel.tsx` — accepts `schema` prop, auto-focus input after AI response
+- Modified `frontend/lib/api.ts` — `streamChat` takes `docType`, `mergeFields` handles party1/party2 → parties[] mapping
+- Modified `frontend/lib/chat-storage.ts` — per-document sessionStorage keyed by `docId`
+- Modified `frontend/app/dashboard/page.tsx` — document selection flow with DocPicker, generic rendering
+
+**Build:**
+- Modified `Dockerfile` — copies `catalog.json` and `templates/` into frontend build stage
+- Modified `frontend/next.config.ts` — webpack `asset/source` rule for `.md` imports
+- Modified `frontend/package.json` — `next build --webpack`, added `raw-loader`
+
 ## Not Yet Built
 
-- **PL-11**: Multi-document support (expand to all template types in catalog.json)
 - **PL-12**: Real authentication, document persistence, UI polish
 
 ## Color Scheme
