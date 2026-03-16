@@ -73,18 +73,26 @@ def get_ai_response(history: list[dict], current_fields: dict, doc_type: str = "
         .replace("{current_fields}", str(current_fields))
     )
     messages = [{"role": "system", "content": system}] + history
-    for attempt in range(2):
-        response = completion(
-            model=MODEL,
-            messages=messages,
-            response_format=config.AiResponse,
-            timeout=30,
-            extra_body=EXTRA_BODY,
-        )
+    last_error = None
+    for attempt in range(3):
+        try:
+            response = completion(
+                model=MODEL,
+                messages=messages,
+                response_format=config.AiResponse,
+                timeout=30,
+                extra_body=EXTRA_BODY,
+            )
+        except Exception as e:
+            last_error = e
+            print(f"[AI RETRY] API error on attempt {attempt + 1}: {e}", flush=True)
+            continue
         raw = response.choices[0].message.content
         print(f"[AI RAW attempt={attempt}] {raw}", flush=True)
         result = config.AiResponse.model_validate_json(raw)
         if not _is_garbled(result.message):
             return result
         print(f"[AI RETRY] Garbled message detected, retrying (attempt {attempt + 1})", flush=True)
+    if last_error:
+        raise last_error
     raise RuntimeError("Model returned garbled output on all attempts. Please try again.")
