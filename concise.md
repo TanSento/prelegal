@@ -1,0 +1,4 @@
+- **Legal document drafting SaaS** built on 11 CommonPaper templates (NDA, CSA, SLA, DPA, PSA, BAA, Pilot, Partnership, Software License, Design Partner, AI Addendum) with live preview, PDF generation, and a legal disclaimer.
+- **AI-powered chat** using LiteLLM via OpenRouter (Cerebras inference, gpt-oss-120b) with structured outputs to populate document fields through natural conversation, plus real authentication (bcrypt + session tokens) and document persistence (save/resume drafts).
+- **Dockerized full-stack app** with a Next.js static frontend served by a FastAPI backend, SQLite database (resets on container restart for demo), deployed via `docker compose` on port 8000.
+- **Jira-driven development** — features were tracked as Jira tickets (PL-2 through PL-12), with Claude reading ticket requirements via Atlassian MCP tools, implementing each feature, running tests, and raising GitHub PRs against the tracked tickets.
