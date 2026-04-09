@@ -6,6 +6,16 @@ function authHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+/** Clear stale auth and bounce to login. Called when the server rejects our token. */
+function handleUnauthorized() {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem("prelegal_token");
+  localStorage.removeItem("prelegal_user");
+  if (window.location.pathname !== "/") {
+    window.location.replace("/");
+  }
+}
+
 // --- Auth ---
 
 export async function signup(name: string, email: string, password: string) {
@@ -58,6 +68,10 @@ export interface FullDoc extends SavedDoc {
 
 export async function listDocuments(): Promise<SavedDoc[]> {
   const resp = await fetch("/api/documents", { headers: authHeaders() });
+  if (resp.status === 401) {
+    handleUnauthorized();
+    return [];
+  }
   if (!resp.ok) return [];
   return resp.json();
 }
@@ -118,6 +132,11 @@ export async function streamChat(
     signal,
   });
 
+  if (resp.status === 401) {
+    callbacks.onError("Your session expired. Redirecting to sign in...");
+    handleUnauthorized();
+    return;
+  }
   if (!resp.ok) {
     callbacks.onError(`Server error: ${resp.status}`);
     return;
