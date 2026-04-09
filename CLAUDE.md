@@ -29,7 +29,7 @@ There is an OPENROUTER_API_KEY in the .env file in the project root.
 The entire project should be packaged into a Docker container.  
 The backend should be in backend/ and be a uv project, using FastAPI.  
 The frontend should be in frontend/  
-The database should use SQLLite and be created from scratch each time the Docker container is brought up, allowing for a users table with sign up and sign in.  
+The database should use SQLite and be created from scratch each time the Docker container is brought up, allowing for a users table with sign up and sign in.  
 The frontend is statically built (`next build` with `output: 'export'`) and served by FastAPI from `backend/static/`.
 There should be scripts in scripts/ for:  
 ```bash
