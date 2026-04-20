@@ -2,3 +2,4 @@
 - **AI-powered chat** using LiteLLM via OpenRouter (Cerebras inference, gpt-oss-120b) with structured outputs to populate document fields through natural conversation, plus real authentication (bcrypt + session tokens) and document persistence (save/resume drafts).
 - **Dockerized full-stack app** with a Next.js static frontend served by a FastAPI backend, SQLite database (resets on container restart for demo), deployed via `docker compose` on port 8000.
 - **Jira-driven development** — features were tracked as Jira tickets (PL-2 through PL-12), with Claude reading ticket requirements via Atlassian MCP tools, implementing each feature, running tests, and raising GitHub PRs against the tracked tickets.
+- **Resilient auth handling** — stale session tokens (inevitable when the demo DB resets on restart) now auto-clear and redirect to sign-in instead of surfacing a dead-end 401 error; GitHub Actions CI workflows added for automated Claude PR review.
